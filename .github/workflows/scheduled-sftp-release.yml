@@ -1,0 +1,192 @@
+name: Scheduled SFTP Release
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch to release.
+        required: false
+        type: string
+        default: main
+      ci-workflow:
+        description: Workflow file name or ID that must have a successful run for the release SHA.
+        required: false
+        type: string
+        default: ci.yml
+      node-version:
+        description: Node.js version used to build the deployable artifact.
+        required: false
+        type: string
+        default: '22'
+      build-command:
+        description: Command that creates the deployable artifact.
+        required: false
+        type: string
+        default: npm run build
+      dist-path:
+        description: Local path to the built artifact directory.
+        required: false
+        type: string
+        default: dist
+      release-sequence:
+        description: Calendar release sequence suffix for the UTC release date.
+        required: false
+        type: string
+        default: '0'
+      sftp-host:
+        description: SFTP host. Defaults to the SFTP_HOST secret when omitted.
+        required: false
+        type: string
+        default: ''
+      sftp-port:
+        description: SFTP port.
+        required: false
+        type: string
+        default: '22'
+      sftp-username:
+        description: SFTP username. Defaults to the SFTP_USERNAME secret when omitted.
+        required: false
+        type: string
+        default: ''
+      sftp-remote-path:
+        description: Remote directory to synchronize. Defaults to the SFTP_REMOTE_PATH secret when omitted.
+        required: false
+        type: string
+        default: ''
+    secrets:
+      SFTP_HOST:
+        description: SFTP host when not passed as an input.
+        required: false
+      SFTP_USERNAME:
+        description: SFTP username when not passed as an input.
+        required: false
+      SFTP_PASSWORD:
+        description: SFTP password. Not required when SFTP_PRIVATE_KEY is provided.
+        required: false
+      SFTP_PRIVATE_KEY:
+        description: SFTP private key. Not required when SFTP_PASSWORD is provided.
+        required: false
+      SFTP_REMOTE_PATH:
+        description: Remote directory when not passed as an input.
+        required: false
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Determine release need
+        id: release-plan
+        shell: bash
+        env:
+          RELEASE_SEQUENCE: ${{ inputs.release-sequence }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          tag="v$(date -u +'%Y.%m.%d').${RELEASE_SEQUENCE}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+          if gh release view "${tag}" > /dev/null 2>&1; then
+            echo "Release ${tag} already exists; skipping deployment."
+            echo "should_deploy=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          previous_tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
+          if [ -z "${previous_tag}" ]; then
+            echo "No previous release found; deployment is needed."
+            echo "should_deploy=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if ! git rev-parse -q --verify "refs/tags/${previous_tag}" > /dev/null; then
+            echo "::warning::Previous release tag ${previous_tag} was not found locally; deployment is needed."
+            echo "should_deploy=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          commit_count="$(git rev-list --count "${previous_tag}..HEAD")"
+          if [ "${commit_count}" = "0" ]; then
+            echo "No commits since ${previous_tag}; skipping deployment."
+            echo "should_deploy=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "Found ${commit_count} commit(s) since ${previous_tag}; deployment is needed."
+          echo "should_deploy=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify CI succeeded for release commit
+        id: ci-check
+        if: steps.release-plan.outputs.should_deploy == 'true'
+        shell: bash
+        env:
+          CI_WORKFLOW: ${{ inputs.ci-workflow }}
+          RELEASE_BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+
+          head_sha="$(git rev-parse HEAD)"
+          successful_ci_run_id="$(gh api \
+            -X GET \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${CI_WORKFLOW}/runs" \
+            -f branch="${RELEASE_BRANCH}" \
+            -f head_sha="${head_sha}" \
+            -f status=success \
+            --jq '.workflow_runs[0].id // empty')"
+
+          if [ -z "${successful_ci_run_id}" ]; then
+            echo "No successful ${CI_WORKFLOW} run found for ${head_sha}; skipping deployment."
+            echo "ci_passed=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "Found successful ${CI_WORKFLOW} run ${successful_ci_run_id} for ${head_sha}."
+          echo "ci_passed=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Node.js
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        run: npm ci --include=dev
+
+      - name: Build artifact
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        run: ${{ inputs.build-command }}
+
+      - name: Deploy artifact to SFTP
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        uses: valomedia/github-workflows/actions/sftp-deploy@v1
+        with:
+          host: ${{ inputs.sftp-host || secrets.SFTP_HOST }}
+          port: ${{ inputs.sftp-port }}
+          username: ${{ inputs.sftp-username || secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          private-key: ${{ secrets.SFTP_PRIVATE_KEY }}
+          local-path: ${{ inputs.dist-path }}
+          remote-path: ${{ inputs.sftp-remote-path || secrets.SFTP_REMOTE_PATH }}
+
+      - name: Create GitHub Release
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        uses: valomedia/github-workflows/actions/calendar-release@v1
+        with:
+          tag: ${{ steps.release-plan.outputs.tag }}

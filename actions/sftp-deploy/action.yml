@@ -1,0 +1,102 @@
+name: SFTP Deploy
+
+description: Synchronize a static build artifact directory to SFTP.
+
+inputs:
+  host:
+    description: SFTP host.
+    required: true
+  port:
+    description: SFTP port.
+    required: false
+    default: '22'
+  username:
+    description: SFTP username.
+    required: true
+  password:
+    description: SFTP password. Not required when private-key is provided.
+    required: false
+    default: ''
+  private-key:
+    description: SFTP private key. Not required when password is provided.
+    required: false
+    default: ''
+  local-path:
+    description: Local directory to deploy.
+    required: true
+  remote-path:
+    description: Remote directory to synchronize.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install lftp
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends lftp
+
+    - name: Mirror artifact to SFTP
+      shell: bash
+      env:
+        SFTP_HOST: ${{ inputs.host }}
+        SFTP_PORT: ${{ inputs.port }}
+        SFTP_USERNAME: ${{ inputs.username }}
+        SFTP_PASSWORD: ${{ inputs.password }}
+        SFTP_PRIVATE_KEY: ${{ inputs.private-key }}
+        LOCAL_PATH: ${{ inputs.local-path }}
+        REMOTE_PATH: ${{ inputs.remote-path }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${SFTP_HOST}" ]; then
+          echo "::error::SFTP host is required."
+          exit 1
+        fi
+
+        if [ -z "${SFTP_USERNAME}" ]; then
+          echo "::error::SFTP username is required."
+          exit 1
+        fi
+
+        if [ -z "${REMOTE_PATH}" ]; then
+          echo "::error::SFTP remote path is required."
+          exit 1
+        fi
+
+        if [ ! -d "${LOCAL_PATH}" ]; then
+          echo "::error::Local deploy path ${LOCAL_PATH} does not exist or is not a directory."
+          exit 1
+        fi
+
+        if [ -z "${SFTP_PASSWORD}" ] && [ -z "${SFTP_PRIVATE_KEY}" ]; then
+          echo "::error::Provide SFTP_PASSWORD or SFTP_PRIVATE_KEY."
+          exit 1
+        fi
+
+        local_path="${LOCAL_PATH%/}"
+        remote_path="${REMOTE_PATH}"
+        if [ "${remote_path}" != "/" ]; then
+          remote_path="${remote_path%/}"
+        fi
+
+        connect_program="ssh -a -x -o StrictHostKeyChecking=accept-new"
+        if [ -n "${SFTP_PRIVATE_KEY}" ]; then
+          identity_file="${RUNNER_TEMP}/sftp_private_key"
+          printf '%s\n' "${SFTP_PRIVATE_KEY}" > "${identity_file}"
+          chmod 600 "${identity_file}"
+          connect_program="ssh -a -x -i ${identity_file} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+        fi
+
+        lftp <<LFTP
+        set cmd:fail-exit yes
+        set net:max-retries 2
+        set net:timeout 30
+        set sftp:auto-confirm yes
+        set sftp:connect-program ${connect_program}
+        open -u "${SFTP_USERNAME}","${SFTP_PASSWORD}" -p "${SFTP_PORT}" "sftp://${SFTP_HOST}"
+        mirror --reverse --delete --verbose --exclude '^\.ht' "${local_path}/" "${remote_path}/"
+        bye
+        LFTP
