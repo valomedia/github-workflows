@@ -177,7 +177,7 @@ jobs:
 
       - name: Deploy artifact to SFTP
         if: steps.ci-check.outputs.ci_passed == 'true'
-        uses: valomedia/github-workflows/actions/sftp-deploy@v1.0.1
+        uses: valomedia/github-workflows/actions/sftp-deploy@v1.0.2
         with:
           host: ${{ inputs.sftp-host || secrets.SFTP_HOST }}
           port: ${{ inputs.sftp-port }}
@@ -189,7 +189,7 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.ci-check.outputs.ci_passed == 'true'
-        uses: valomedia/github-workflows/actions/calendar-release@v1.0.1
+        uses: valomedia/github-workflows/actions/calendar-release@v1.0.2
         with:
           tag: ${{ steps.release-plan.outputs.tag }}
           target-sha: ${{ steps.ci-check.outputs.target_sha }}

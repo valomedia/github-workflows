@@ -10,7 +10,7 @@ that owns the schedule and repository-specific inputs.
 ```yaml
 jobs:
   deploy:
-    uses: valomedia/github-workflows/.github/workflows/scheduled-sftp-release.yml@v1.0.1
+    uses: valomedia/github-workflows/.github/workflows/scheduled-sftp-release.yml@v1.0.2
     with:
       ci-workflow: ci.yml
       build-command: npm run build
