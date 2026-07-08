@@ -10,7 +10,7 @@ that owns the schedule and repository-specific inputs.
 ```yaml
 jobs:
   deploy:
-    uses: valomedia/github-workflows/.github/workflows/scheduled-sftp-release.yml@v1
+    uses: valomedia/github-workflows/.github/workflows/scheduled-sftp-release.yml@v1.0.1
     with:
       ci-workflow: ci.yml
       build-command: npm run build
@@ -33,6 +33,7 @@ The called repository must provide these GitHub Actions variables or secrets:
 The reusable workflow checks that the configured CI workflow has succeeded
 for the exact `main` commit being released,
 builds the configured Vite artifact,
+creates the GitHub Release tag at that verified commit,
 deploys it to SFTP,
 and creates a GitHub Release with GitHub-generated notes.
 

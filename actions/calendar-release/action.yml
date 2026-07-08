@@ -10,6 +10,9 @@ inputs:
     description: Release title. Defaults to the tag.
     required: false
     default: ''
+  target-sha:
+    description: Commit SHA the release tag must target.
+    required: true
 
 runs:
   using: composite
@@ -19,6 +22,7 @@ runs:
       env:
         RELEASE_TAG: ${{ inputs.tag }}
         RELEASE_TITLE: ${{ inputs.title }}
+        TARGET_SHA: ${{ inputs.target-sha }}
       run: |
         set -euo pipefail
 
@@ -27,7 +31,13 @@ runs:
           title="${RELEASE_TAG}"
         fi
 
+        if [ -z "${TARGET_SHA}" ]; then
+          echo "::error::target-sha is required."
+          exit 1
+        fi
+
         gh release create "${RELEASE_TAG}" \
+          --target "${TARGET_SHA}" \
           --title "${title}" \
           --generate-notes \
           --fail-on-no-commits
