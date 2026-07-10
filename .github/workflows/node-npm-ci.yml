@@ -1,0 +1,134 @@
+name: Node/npm CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version used for build, lint, and test jobs.
+        required: false
+        type: string
+        default: '24'
+      build-command:
+        description: Build command. Set to an empty string to skip the build step.
+        required: false
+        type: string
+        default: npm run build
+      lint-command:
+        description: Lint command. Set to an empty string to skip the lint step.
+        required: false
+        type: string
+        default: npm run lint
+      unit-test-command:
+        description: Unit test command.
+        required: false
+        type: string
+        default: NODE_ENV=test npm run test
+      integration-test-command:
+        description: Integration test command. Required to enable the integration-tests job.
+        required: false
+        type: string
+        default: ''
+      integration-install-command:
+        description: Optional install command to run before integration tests, such as Playwright browser installation.
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Build
+        if: ${{ inputs.build-command != '' }}
+        run: ${{ inputs.build-command }}
+
+      - name: Skip build
+        if: ${{ inputs.build-command == '' }}
+        run: echo "No build command supplied; skipping build."
+
+  lint:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Lint
+        if: ${{ inputs.lint-command != '' }}
+        run: ${{ inputs.lint-command }}
+
+      - name: Skip lint
+        if: ${{ inputs.lint-command == '' }}
+        run: echo "No lint command supplied; skipping lint."
+
+  unit-tests:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Unit tests
+        run: ${{ inputs.unit-test-command }}
+
+  integration-tests:
+    if: ${{ inputs.integration-test-command != '' }}
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Install integration test dependencies
+        if: ${{ inputs.integration-install-command != '' }}
+        run: ${{ inputs.integration-install-command }}
+
+      - name: Integration tests
+        run: ${{ inputs.integration-test-command }}
