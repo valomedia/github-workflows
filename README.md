@@ -58,6 +58,70 @@ can be set to alternate npm scripts.
 Set `build-command` or `lint-command` to an empty string
 to leave that job present while skipping the command.
 
+## Android CI
+
+Use `android-ci.yml` from a repository-local wrapper workflow
+that owns triggers, concurrency, top-level permissions,
+and any repository-specific command overrides.
+
+```yaml
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: valomedia/github-workflows/.github/workflows/android-ci.yml@v1
+```
+
+The reusable workflow runs separate `build`, `lint`, `unit-tests`,
+and optional `instrumented-tests` jobs on Ubuntu.
+Each job checks out the repository,
+sets up Java and Gradle,
+generates the Gradle wrapper by default,
+and then runs the job-specific command.
+
+By default it mirrors JetNews CI by using Java 17,
+installing Gradle 9.2.1,
+running `gradle wrapper --no-daemon`,
+and using these commands:
+
+1. `./gradlew :app:assembleDebug --no-daemon --stacktrace`
+2. `./gradlew :app:lintDebug --no-daemon --stacktrace`
+3. `./gradlew :app:testDebugUnitTest --no-daemon --stacktrace`
+4. the instrumented test command, when supplied
+
+The build job uploads `app/build/outputs/apk/debug/*.apk`
+as `android-debug-apk` by default.
+Set `build-artifact-path` to an empty string to skip artifact upload.
+
+Enable the optional instrumented test job by supplying a command.
+The job enables KVM and runs the command through
+`reactivecircus/android-emulator-runner` with API level 35 and `x86_64`
+by default:
+
+```yaml
+jobs:
+  ci:
+    uses: valomedia/github-workflows/.github/workflows/android-ci.yml@v1
+    with:
+      instrumented-test-command: ./gradlew connectedCheck --no-daemon --stacktrace
+```
+
+For repositories that need compatibility overrides,
+`gradle-wrapper-command`, `build-command`, `lint-command`,
+`unit-test-command`, and `instrumented-test-command`
+can be set to alternate commands.
+Set `gradle-wrapper-command`, `build-command`, `lint-command`,
+or `build-artifact-path` to an empty string to skip that step.
+
 ## Scheduled SFTP release deployment
 
 Use `scheduled-sftp-release.yml` from a repository-local wrapper workflow
