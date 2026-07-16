@@ -1,0 +1,233 @@
+name: Android CI
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: GitHub Actions runner label used for Android jobs.
+        required: false
+        type: string
+        default: ubuntu-latest
+      java-version:
+        description: Java version used for Gradle and Android builds.
+        required: false
+        type: string
+        default: '17'
+      java-distribution:
+        description: Java distribution passed to actions/setup-java.
+        required: false
+        type: string
+        default: temurin
+      gradle-version:
+        description: Gradle version installed before generating or running the wrapper.
+        required: false
+        type: string
+        default: '9.2.1'
+      gradle-wrapper-command:
+        description: Gradle wrapper generation command. Set to an empty string when the wrapper is checked in and should not be generated.
+        required: false
+        type: string
+        default: gradle wrapper --no-daemon
+      build-command:
+        description: Build validation command. Set to an empty string to skip the build step.
+        required: false
+        type: string
+        default: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      build-artifact-name:
+        description: Name for the optional build artifact upload.
+        required: false
+        type: string
+        default: android-debug-apk
+      build-artifact-path:
+        description: Path to upload after the build command. Set to an empty string to skip artifact upload.
+        required: false
+        type: string
+        default: app/build/outputs/apk/debug/*.apk
+      lint-command:
+        description: Android lint command. Set to an empty string to skip the lint step.
+        required: false
+        type: string
+        default: ./gradlew :app:lintDebug --no-daemon --stacktrace
+      unit-test-command:
+        description: JVM unit and Robolectric test command.
+        required: false
+        type: string
+        default: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+      instrumented-test-command:
+        description: Instrumented test command run inside the Android emulator. Required to enable the instrumented-tests job.
+        required: false
+        type: string
+        default: ''
+      instrumented-test-api-level:
+        description: Android API level used by the instrumented test emulator.
+        required: false
+        type: number
+        default: 35
+      instrumented-test-arch:
+        description: Android emulator CPU architecture used for instrumented tests.
+        required: false
+        type: string
+        default: x86_64
+      instrumented-test-artifact-name:
+        description: Name for the optional instrumented test artifact upload.
+        required: false
+        type: string
+        default: instrumented-test-artifacts
+      instrumented-test-artifact-path:
+        description: Path to upload after instrumented tests. Set to an empty string to skip artifact upload.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ inputs.java-distribution }}
+          java-version: ${{ inputs.java-version }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ inputs.gradle-version }}
+
+      - name: Generate Gradle wrapper
+        if: ${{ inputs.gradle-wrapper-command != '' }}
+        run: ${{ inputs.gradle-wrapper-command }}
+
+      - name: Build validation
+        if: ${{ inputs.build-command != '' }}
+        run: ${{ inputs.build-command }}
+
+      - name: Skip build validation
+        if: ${{ inputs.build-command == '' }}
+        run: echo "No build command supplied; skipping build validation."
+
+      - name: Upload build artifact
+        if: ${{ inputs.build-command != '' && inputs.build-artifact-path != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.build-artifact-name }}
+          path: ${{ inputs.build-artifact-path }}
+          if-no-files-found: error
+
+  lint:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ inputs.java-distribution }}
+          java-version: ${{ inputs.java-version }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ inputs.gradle-version }}
+
+      - name: Generate Gradle wrapper
+        if: ${{ inputs.gradle-wrapper-command != '' }}
+        run: ${{ inputs.gradle-wrapper-command }}
+
+      - name: Android lint
+        if: ${{ inputs.lint-command != '' }}
+        run: ${{ inputs.lint-command }}
+
+      - name: Skip Android lint
+        if: ${{ inputs.lint-command == '' }}
+        run: echo "No lint command supplied; skipping Android lint."
+
+  unit-tests:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ inputs.java-distribution }}
+          java-version: ${{ inputs.java-version }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ inputs.gradle-version }}
+
+      - name: Generate Gradle wrapper
+        if: ${{ inputs.gradle-wrapper-command != '' }}
+        run: ${{ inputs.gradle-wrapper-command }}
+
+      - name: JVM unit and Robolectric tests
+        run: ${{ inputs.unit-test-command }}
+
+  instrumented-tests:
+    if: ${{ inputs.instrumented-test-command != '' }}
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ inputs.java-distribution }}
+          java-version: ${{ inputs.java-version }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ inputs.gradle-version }}
+
+      - name: Generate Gradle wrapper
+        if: ${{ inputs.gradle-wrapper-command != '' }}
+        run: ${{ inputs.gradle-wrapper-command }}
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ inputs.instrumented-test-api-level }}
+          arch: ${{ inputs.instrumented-test-arch }}
+          script: ${{ inputs.instrumented-test-command }}
+
+      - name: Upload instrumented test artifacts
+        if: ${{ always() && inputs.instrumented-test-artifact-path != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.instrumented-test-artifact-name }}
+          path: ${{ inputs.instrumented-test-artifact-path }}
+          if-no-files-found: warn
