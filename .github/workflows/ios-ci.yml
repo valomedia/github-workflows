@@ -1,0 +1,386 @@
+name: iOS CI
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: GitHub Actions runner label used for iOS jobs.
+        required: false
+        type: string
+        default: macos-15
+      xcode-path:
+        description: Xcode application path selected before installing dependencies and running checks. Set to an empty string to skip selection.
+        required: false
+        type: string
+        default: /Applications/Xcode.app
+      install-command:
+        description: Dependency installation command. Set to an empty string to skip dependency installation.
+        required: false
+        type: string
+        default: pod install --repo-update
+      workspace:
+        description: Xcode workspace passed to default build and test commands.
+        required: true
+        type: string
+      scheme:
+        description: Xcode scheme passed to default build and test commands.
+        required: true
+        type: string
+      simulator-name:
+        description: Name assigned to the per-job iOS simulator.
+        required: false
+        type: string
+        default: iOS CI iPhone
+      simulator-device:
+        description: Preferred iPhone simulator device name. An available iPhone simulator device type is used when this device is unavailable.
+        required: false
+        type: string
+        default: iPhone 16
+      lint-command:
+        description: Lint command. Set to an empty string to skip the lint step.
+        required: false
+        type: string
+        default: ./scripts/lint.sh
+      build-command:
+        description: Build command. Defaults to xcodebuild build for the configured workspace, scheme, and simulator.
+        required: false
+        type: string
+        default: ''
+      unit-test-command:
+        description: Unit test command. Defaults to xcodebuild test for the configured workspace, scheme, simulator, and optional unit-test-only-testing value.
+        required: false
+        type: string
+        default: ''
+      unit-test-only-testing:
+        description: Optional xcodebuild only-testing value for the default unit test command, such as ChronosTests.
+        required: false
+        type: string
+        default: ''
+      instrumented-test-command:
+        description: Custom instrumented test command. Leave empty to use the default xcodebuild command with instrumented-test-only-testing.
+        required: false
+        type: string
+        default: ''
+      instrumented-test-only-testing:
+        description: Optional xcodebuild only-testing value for the default instrumented test command. Used only when instrumented-test-command is empty.
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  lint:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Select Xcode
+        if: ${{ inputs.xcode-path != '' }}
+        run: sudo xcode-select -s "${{ inputs.xcode-path }}"
+
+      - name: Install dependencies
+        if: ${{ inputs.install-command != '' }}
+        run: ${{ inputs.install-command }}
+
+      - name: Create iOS simulator
+        shell: bash
+        env:
+          IOS_CI_SIMULATOR_NAME: ${{ inputs.simulator-name }}
+          IOS_CI_SIMULATOR_DEVICE: ${{ inputs.simulator-device }}
+        run: |
+          set -euo pipefail
+
+          device_identifier="$(python3 -c '
+          import json
+          import os
+          import subprocess
+
+          result = subprocess.run(
+              ["xcrun", "simctl", "list", "--json", "devicetypes"],
+              check=True,
+              capture_output=True,
+              text=True,
+          )
+          preferred_device = os.environ["IOS_CI_SIMULATOR_DEVICE"]
+          device_types = [
+              device_type
+              for device_type in json.loads(result.stdout).get("devicetypes", [])
+              if "iPhone" in str(device_type.get("name", ""))
+              and device_type.get("identifier")
+          ]
+          if not device_types:
+              raise SystemExit("No available iPhone simulator device types were found.")
+
+          device_type = next(
+              (
+                  device_type
+                  for device_type in device_types
+                  if device_type.get("name") == preferred_device
+              ),
+              device_types[-1],
+          )
+          print(device_type["identifier"])
+          ')"
+          simulator_udid="$(xcrun simctl create "${IOS_CI_SIMULATOR_NAME}" "${device_identifier}")"
+
+          echo "Created ${IOS_CI_SIMULATOR_NAME} (${simulator_udid}) using ${device_identifier}."
+          echo "IOS_CI_SIMULATOR_UDID=${simulator_udid}" >> "${GITHUB_ENV}"
+
+      - name: Lint
+        if: ${{ inputs.lint-command != '' }}
+        run: ${{ inputs.lint-command }}
+
+      - name: Skip lint
+        if: ${{ inputs.lint-command == '' }}
+        run: echo "No lint command supplied; skipping lint."
+
+  build:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Select Xcode
+        if: ${{ inputs.xcode-path != '' }}
+        run: sudo xcode-select -s "${{ inputs.xcode-path }}"
+
+      - name: Install dependencies
+        if: ${{ inputs.install-command != '' }}
+        run: ${{ inputs.install-command }}
+
+      - name: Create iOS simulator
+        shell: bash
+        env:
+          IOS_CI_SIMULATOR_NAME: ${{ inputs.simulator-name }}
+          IOS_CI_SIMULATOR_DEVICE: ${{ inputs.simulator-device }}
+        run: |
+          set -euo pipefail
+
+          device_identifier="$(python3 -c '
+          import json
+          import os
+          import subprocess
+
+          result = subprocess.run(
+              ["xcrun", "simctl", "list", "--json", "devicetypes"],
+              check=True,
+              capture_output=True,
+              text=True,
+          )
+          preferred_device = os.environ["IOS_CI_SIMULATOR_DEVICE"]
+          device_types = [
+              device_type
+              for device_type in json.loads(result.stdout).get("devicetypes", [])
+              if "iPhone" in str(device_type.get("name", ""))
+              and device_type.get("identifier")
+          ]
+          if not device_types:
+              raise SystemExit("No available iPhone simulator device types were found.")
+
+          device_type = next(
+              (
+                  device_type
+                  for device_type in device_types
+                  if device_type.get("name") == preferred_device
+              ),
+              device_types[-1],
+          )
+          print(device_type["identifier"])
+          ')"
+          simulator_udid="$(xcrun simctl create "${IOS_CI_SIMULATOR_NAME}" "${device_identifier}")"
+
+          echo "Created ${IOS_CI_SIMULATOR_NAME} (${simulator_udid}) using ${device_identifier}."
+          echo "IOS_CI_SIMULATOR_UDID=${simulator_udid}" >> "${GITHUB_ENV}"
+
+      - name: Build app
+        if: ${{ inputs.build-command != '' }}
+        run: ${{ inputs.build-command }}
+
+      - name: Build app with xcodebuild
+        if: ${{ inputs.build-command == '' }}
+        env:
+          IOS_CI_WORKSPACE: ${{ inputs.workspace }}
+          IOS_CI_SCHEME: ${{ inputs.scheme }}
+        run: |
+          set -euo pipefail
+
+          xcodebuild build \
+            -workspace "${IOS_CI_WORKSPACE}" \
+            -scheme "${IOS_CI_SCHEME}" \
+            -destination "platform=iOS Simulator,id=${IOS_CI_SIMULATOR_UDID}" \
+            CODE_SIGNING_ALLOWED=NO
+
+  unit-tests:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Select Xcode
+        if: ${{ inputs.xcode-path != '' }}
+        run: sudo xcode-select -s "${{ inputs.xcode-path }}"
+
+      - name: Install dependencies
+        if: ${{ inputs.install-command != '' }}
+        run: ${{ inputs.install-command }}
+
+      - name: Create iOS simulator
+        shell: bash
+        env:
+          IOS_CI_SIMULATOR_NAME: ${{ inputs.simulator-name }}
+          IOS_CI_SIMULATOR_DEVICE: ${{ inputs.simulator-device }}
+        run: |
+          set -euo pipefail
+
+          device_identifier="$(python3 -c '
+          import json
+          import os
+          import subprocess
+
+          result = subprocess.run(
+              ["xcrun", "simctl", "list", "--json", "devicetypes"],
+              check=True,
+              capture_output=True,
+              text=True,
+          )
+          preferred_device = os.environ["IOS_CI_SIMULATOR_DEVICE"]
+          device_types = [
+              device_type
+              for device_type in json.loads(result.stdout).get("devicetypes", [])
+              if "iPhone" in str(device_type.get("name", ""))
+              and device_type.get("identifier")
+          ]
+          if not device_types:
+              raise SystemExit("No available iPhone simulator device types were found.")
+
+          device_type = next(
+              (
+                  device_type
+                  for device_type in device_types
+                  if device_type.get("name") == preferred_device
+              ),
+              device_types[-1],
+          )
+          print(device_type["identifier"])
+          ')"
+          simulator_udid="$(xcrun simctl create "${IOS_CI_SIMULATOR_NAME}" "${device_identifier}")"
+
+          echo "Created ${IOS_CI_SIMULATOR_NAME} (${simulator_udid}) using ${device_identifier}."
+          echo "IOS_CI_SIMULATOR_UDID=${simulator_udid}" >> "${GITHUB_ENV}"
+
+      - name: Unit tests
+        if: ${{ inputs.unit-test-command != '' }}
+        run: ${{ inputs.unit-test-command }}
+
+      - name: Unit tests with xcodebuild
+        if: ${{ inputs.unit-test-command == '' }}
+        env:
+          IOS_CI_WORKSPACE: ${{ inputs.workspace }}
+          IOS_CI_SCHEME: ${{ inputs.scheme }}
+          IOS_CI_ONLY_TESTING: ${{ inputs.unit-test-only-testing }}
+        run: |
+          set -euo pipefail
+
+          only_testing_args=()
+          if [ -n "${IOS_CI_ONLY_TESTING}" ]; then
+            only_testing_args+=("-only-testing:${IOS_CI_ONLY_TESTING}")
+          fi
+
+          xcodebuild test \
+            -workspace "${IOS_CI_WORKSPACE}" \
+            -scheme "${IOS_CI_SCHEME}" \
+            -destination "platform=iOS Simulator,id=${IOS_CI_SIMULATOR_UDID}" \
+            "${only_testing_args[@]}" \
+            CODE_SIGNING_ALLOWED=NO
+
+  instrumented-tests:
+    if: ${{ inputs.instrumented-test-command != '' || inputs.instrumented-test-only-testing != '' }}
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Select Xcode
+        if: ${{ inputs.xcode-path != '' }}
+        run: sudo xcode-select -s "${{ inputs.xcode-path }}"
+
+      - name: Install dependencies
+        if: ${{ inputs.install-command != '' }}
+        run: ${{ inputs.install-command }}
+
+      - name: Create iOS simulator
+        shell: bash
+        env:
+          IOS_CI_SIMULATOR_NAME: ${{ inputs.simulator-name }}
+          IOS_CI_SIMULATOR_DEVICE: ${{ inputs.simulator-device }}
+        run: |
+          set -euo pipefail
+
+          device_identifier="$(python3 -c '
+          import json
+          import os
+          import subprocess
+
+          result = subprocess.run(
+              ["xcrun", "simctl", "list", "--json", "devicetypes"],
+              check=True,
+              capture_output=True,
+              text=True,
+          )
+          preferred_device = os.environ["IOS_CI_SIMULATOR_DEVICE"]
+          device_types = [
+              device_type
+              for device_type in json.loads(result.stdout).get("devicetypes", [])
+              if "iPhone" in str(device_type.get("name", ""))
+              and device_type.get("identifier")
+          ]
+          if not device_types:
+              raise SystemExit("No available iPhone simulator device types were found.")
+
+          device_type = next(
+              (
+                  device_type
+                  for device_type in device_types
+                  if device_type.get("name") == preferred_device
+              ),
+              device_types[-1],
+          )
+          print(device_type["identifier"])
+          ')"
+          simulator_udid="$(xcrun simctl create "${IOS_CI_SIMULATOR_NAME}" "${device_identifier}")"
+
+          echo "Created ${IOS_CI_SIMULATOR_NAME} (${simulator_udid}) using ${device_identifier}."
+          echo "IOS_CI_SIMULATOR_UDID=${simulator_udid}" >> "${GITHUB_ENV}"
+
+      - name: Instrumented tests
+        if: ${{ inputs.instrumented-test-command != '' }}
+        run: ${{ inputs.instrumented-test-command }}
+
+      - name: Instrumented tests with xcodebuild
+        if: ${{ inputs.instrumented-test-command == '' }}
+        env:
+          IOS_CI_WORKSPACE: ${{ inputs.workspace }}
+          IOS_CI_SCHEME: ${{ inputs.scheme }}
+          IOS_CI_ONLY_TESTING: ${{ inputs.instrumented-test-only-testing }}
+        run: |
+          set -euo pipefail
+
+          only_testing_args=()
+          if [ -n "${IOS_CI_ONLY_TESTING}" ]; then
+            only_testing_args+=("-only-testing:${IOS_CI_ONLY_TESTING}")
+          fi
+
+          xcodebuild test \
+            -workspace "${IOS_CI_WORKSPACE}" \
+            -scheme "${IOS_CI_SCHEME}" \
+            -destination "platform=iOS Simulator,id=${IOS_CI_SIMULATOR_UDID}" \
+            "${only_testing_args[@]}" \
+            CODE_SIGNING_ALLOWED=NO
