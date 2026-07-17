@@ -122,6 +122,71 @@ can be set to alternate commands.
 Set `gradle-wrapper-command`, `build-command`, `lint-command`,
 or `build-artifact-path` to an empty string to skip that step.
 
+## iOS CI
+
+Use `ios-ci.yml` from a repository-local wrapper workflow
+that owns triggers, concurrency, top-level permissions,
+and any repository-specific command overrides.
+
+```yaml
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: valomedia/github-workflows/.github/workflows/ios-ci.yml@v1
+    with:
+      workspace: Chronos.xcworkspace
+      scheme: Pandatrack
+      unit-test-only-testing: ChronosTests
+```
+
+The reusable workflow runs separate `lint`, `build`, `unit-tests`,
+and optional `instrumented-tests` jobs on macOS.
+Each job checks out the repository,
+selects Xcode,
+installs CocoaPods dependencies,
+creates an iOS simulator,
+and then runs the job-specific command.
+
+By default it selects `/Applications/Xcode.app`,
+uses the `macos-15` runner,
+installs dependencies with `pod install --repo-update`,
+runs `./scripts/lint.sh`,
+and uses `xcodebuild` for the configured workspace and scheme.
+The default build and test commands disable code signing
+and use the per-job simulator through `IOS_CI_SIMULATOR_UDID`.
+
+Enable instrumented tests by supplying either an explicit command
+or an `xcodebuild -only-testing` value for the default command:
+
+```yaml
+jobs:
+  ci:
+    uses: valomedia/github-workflows/.github/workflows/ios-ci.yml@v1
+    with:
+      workspace: Chronos.xcworkspace
+      scheme: Pandatrack
+      unit-test-only-testing: ChronosTests
+      instrumented-test-only-testing: ChronosUITests
+```
+
+For repositories that need compatibility overrides,
+`install-command`, `lint-command`, `build-command`,
+`unit-test-command`, and `instrumented-test-command`
+can be set to alternate scripts.
+Set `xcode-path`, `install-command`, or `lint-command`
+to an empty string to skip that setup or lint step.
+
 ## Scheduled SFTP release deployment
 
 Use `scheduled-sftp-release.yml` from a repository-local wrapper workflow
