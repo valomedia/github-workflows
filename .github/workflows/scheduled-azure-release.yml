@@ -1,0 +1,296 @@
+name: Scheduled Azure Functions Release
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch to release.
+        required: false
+        type: string
+        default: main
+      ci-workflow:
+        description: Workflow file name or ID that must have a successful run for the release SHA.
+        required: false
+        type: string
+        default: ci.yml
+      node-version:
+        description: Node.js version used to build the deployable artifact.
+        required: false
+        type: string
+        default: '22'
+      build-command:
+        description: Command that creates the deployable artifact.
+        required: false
+        type: string
+        default: npm run build
+      release-sequence:
+        description: Calendar release sequence suffix for the UTC release date.
+        required: false
+        type: string
+        default: '0'
+      functionapp-name:
+        description: Name of the target Azure Function App.
+        required: true
+        type: string
+      resource-group:
+        description: Resource group of the target Function App. Required to apply application settings.
+        required: false
+        type: string
+        default: ''
+      azure-client-id:
+        description: Client ID of the Entra application used for federated (OIDC) login to Azure.
+        required: true
+        type: string
+      azure-tenant-id:
+        description: Tenant ID used for federated (OIDC) login to Azure.
+        required: true
+        type: string
+      azure-subscription-id:
+        description: Subscription ID that owns the Function App.
+        required: true
+        type: string
+      app-settings:
+        description: >-
+          Non-secret Function App application settings to apply, one KEY=VALUE per line.
+          Applied before deployment when resource-group is set. Blank lines and lines
+          starting with '#' are ignored.
+        required: false
+        type: string
+        default: ''
+      client-secret-setting-name:
+        description: Application setting name the client-secret value is stored under.
+        required: false
+        type: string
+        default: CLIENT_SECRET
+      config-file-1-path:
+        description: Repository-relative path to write config-file-1-content to before packaging.
+        required: false
+        type: string
+        default: ''
+      config-file-1-content:
+        description: Contents for config-file-1-path.
+        required: false
+        type: string
+        default: ''
+      config-file-2-path:
+        description: Repository-relative path to write config-file-2-content to before packaging.
+        required: false
+        type: string
+        default: ''
+      config-file-2-content:
+        description: Contents for config-file-2-path.
+        required: false
+        type: string
+        default: ''
+    secrets:
+      client-secret:
+        description: Secret value stored under the client-secret-setting-name application setting.
+        required: false
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Determine release need
+        id: release-plan
+        shell: bash
+        env:
+          RELEASE_SEQUENCE: ${{ inputs.release-sequence }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          tag="v$(date -u +'%Y.%m.%d').${RELEASE_SEQUENCE}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+          if gh release view "${tag}" > /dev/null 2>&1; then
+            echo "Release ${tag} already exists; skipping deployment."
+            echo "should_deploy=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          previous_tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
+          if [ -z "${previous_tag}" ]; then
+            echo "No previous release found; deployment is needed."
+            echo "should_deploy=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if ! git rev-parse -q --verify "refs/tags/${previous_tag}" > /dev/null; then
+            echo "::warning::Previous release tag ${previous_tag} was not found locally; deployment is needed."
+            echo "should_deploy=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          commit_count="$(git rev-list --count "${previous_tag}..HEAD")"
+          if [ "${commit_count}" = "0" ]; then
+            echo "No commits since ${previous_tag}; skipping deployment."
+            echo "should_deploy=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "Found ${commit_count} commit(s) since ${previous_tag}; deployment is needed."
+          echo "should_deploy=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify CI succeeded for release commit
+        id: ci-check
+        if: steps.release-plan.outputs.should_deploy == 'true'
+        shell: bash
+        env:
+          CI_WORKFLOW: ${{ inputs.ci-workflow }}
+          RELEASE_BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+
+          head_sha="$(git rev-parse HEAD)"
+          echo "target_sha=${head_sha}" >> "${GITHUB_OUTPUT}"
+
+          successful_ci_run_id="$(gh api \
+            -X GET \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${CI_WORKFLOW}/runs" \
+            -f branch="${RELEASE_BRANCH}" \
+            -f head_sha="${head_sha}" \
+            -f status=success \
+            --jq '.workflow_runs[0].id // empty')"
+
+          if [ -z "${successful_ci_run_id}" ]; then
+            echo "No successful ${CI_WORKFLOW} run found for ${head_sha}; skipping deployment."
+            echo "ci_passed=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "Found successful ${CI_WORKFLOW} run ${successful_ci_run_id} for ${head_sha}."
+          echo "ci_passed=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Node.js
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        run: npm ci --include=dev
+
+      - name: Build artifact
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        run: ${{ inputs.build-command }}
+
+      - name: Install Azure Functions Core Tools
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+
+      - name: Prune development dependencies
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        run: npm prune --omit=dev
+
+      - name: Write configuration files
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        shell: bash
+        env:
+          CONFIG_1_PATH: ${{ inputs.config-file-1-path }}
+          CONFIG_1_CONTENT: ${{ inputs.config-file-1-content }}
+          CONFIG_2_PATH: ${{ inputs.config-file-2-path }}
+          CONFIG_2_CONTENT: ${{ inputs.config-file-2-content }}
+        run: |
+          set -euo pipefail
+
+          write_config() {
+            local path="$1"
+            local content="$2"
+            if [ -z "${path}" ]; then
+              return 0
+            fi
+            if [ -z "${content}" ]; then
+              echo "::error::No content supplied for config file ${path}."
+              exit 1
+            fi
+            mkdir -p "$(dirname "${path}")"
+            printf '%s' "${content}" > "${path}"
+            echo "Wrote ${path}."
+          }
+
+          write_config "${CONFIG_1_PATH}" "${CONFIG_1_CONTENT}"
+          write_config "${CONFIG_2_PATH}" "${CONFIG_2_CONTENT}"
+
+      - name: Log in to Azure
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ inputs.azure-client-id }}
+          tenant-id: ${{ inputs.azure-tenant-id }}
+          subscription-id: ${{ inputs.azure-subscription-id }}
+
+      - name: Apply application settings
+        if: steps.ci-check.outputs.ci_passed == 'true' && inputs.resource-group != ''
+        shell: bash
+        env:
+          FUNCTIONAPP_NAME: ${{ inputs.functionapp-name }}
+          RESOURCE_GROUP: ${{ inputs.resource-group }}
+          APP_SETTINGS: ${{ inputs.app-settings }}
+          CLIENT_SECRET_SETTING_NAME: ${{ inputs.client-secret-setting-name }}
+          CLIENT_SECRET: ${{ secrets.client-secret }}
+        run: |
+          set -euo pipefail
+
+          settings=()
+          while IFS= read -r line; do
+            trimmed="${line#"${line%%[![:space:]]*}"}"
+            if [ -z "${trimmed}" ]; then
+              continue
+            fi
+            case "${trimmed}" in
+              '#'*) continue ;;
+            esac
+            settings+=("${trimmed}")
+          done <<< "${APP_SETTINGS}"
+
+          if [ -n "${CLIENT_SECRET:-}" ]; then
+            settings+=("${CLIENT_SECRET_SETTING_NAME}=${CLIENT_SECRET}")
+          fi
+
+          if [ "${#settings[@]}" -eq 0 ]; then
+            echo "No application settings to apply."
+            exit 0
+          fi
+
+          az functionapp config appsettings set \
+            --name "${FUNCTIONAPP_NAME}" \
+            --resource-group "${RESOURCE_GROUP}" \
+            --settings "${settings[@]}" \
+            --output none
+
+          echo "Applied ${#settings[@]} application setting(s)."
+
+      - name: Deploy to Azure Functions
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        shell: bash
+        env:
+          FUNCTIONAPP_NAME: ${{ inputs.functionapp-name }}
+        run: |
+          set -euo pipefail
+          func azure functionapp publish "${FUNCTIONAPP_NAME}"
+
+      - name: Create GitHub Release
+        if: steps.ci-check.outputs.ci_passed == 'true'
+        uses: valomedia/github-workflows/actions/calendar-release@v1.0.2
+        with:
+          tag: ${{ steps.release-plan.outputs.tag }}
+          target-sha: ${{ steps.ci-check.outputs.target_sha }}

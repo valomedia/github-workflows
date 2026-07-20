@@ -225,3 +225,65 @@ and creates a GitHub Release with GitHub-generated notes.
 The SFTP deploy action deletes stale remote app files during sync
 and excludes root `.ht*` files such as `.htaccess`
 from overwrite and deletion.
+
+## Scheduled Azure Functions release deployment
+
+Use `scheduled-azure-release.yml` from a repository-local wrapper workflow
+that owns the schedule and repository-specific inputs.
+It mirrors the scheduled SFTP release workflow
+(calendar tag gating, verification that CI succeeded for the release commit,
+build, deploy, and a generated GitHub Release)
+but publishes an Azure Functions app instead of syncing to SFTP.
+
+```yaml
+name: CD
+
+on:
+  schedule:
+    - cron: '37 3 * * 5'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+
+jobs:
+  deploy:
+    uses: valomedia/github-workflows/.github/workflows/scheduled-azure-release.yml@v1
+    with:
+      ci-workflow: ci.yml
+      build-command: npm run build
+      functionapp-name: my-function-app
+      resource-group: ${{ vars.AZURE_RESOURCE_GROUP }}
+      azure-client-id: ${{ vars.AZURE_CLIENT_ID }}
+      azure-tenant-id: ${{ vars.AZURE_TENANT_ID }}
+      azure-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      app-settings: |
+        SOME_SETTING=${{ vars.SOME_SETTING }}
+      config-file-1-path: data/config/example.json
+      config-file-1-content: ${{ vars.EXAMPLE_JSON }}
+    secrets:
+      client-secret: ${{ secrets.CLIENT_SECRET }}
+```
+
+Authentication to Azure uses OpenID Connect (workload identity federation)
+through `azure/login`, so the caller job must grant `id-token: write`
+and the consumer never stores a long-lived Azure deployment secret.
+The `azure-client-id`, `azure-tenant-id`, and `azure-subscription-id` inputs
+identify an Entra application that has a federated credential for the
+consumer repository and RBAC (for example Contributor) on the Function App.
+
+Before deployment the workflow optionally:
+
+- writes up to two configuration files
+  (`config-file-*-path` / `config-file-*-content`)
+  into the checked-out tree so they are included in the published package, and
+- applies Function App application settings from the `app-settings` input
+  (one `KEY=VALUE` per line) plus the `client-secret` secret
+  (stored under `client-secret-setting-name`, default `CLIENT_SECRET`),
+  when `resource-group` is provided.
+
+Deployment builds the app, installs Azure Functions Core Tools,
+prunes development dependencies,
+and runs `func azure functionapp publish` against `functionapp-name`.
