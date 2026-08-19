@@ -27,12 +27,12 @@ on:
         description: Gradle wrapper generation command. Set to an empty string when the wrapper is checked in and should not be generated.
         required: false
         type: string
-        default: gradle :wrapper --no-daemon
+        default: gradle :wrapper
       build-command:
         description: Build validation command. Set to an empty string to skip the build step.
         required: false
         type: string
-        default: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        default: ./gradlew :app:assembleDebug --stacktrace
       build-artifact-name:
         description: Name for the optional build artifact upload.
         required: false
@@ -47,12 +47,12 @@ on:
         description: Android lint command. Set to an empty string to skip the lint step.
         required: false
         type: string
-        default: ./gradlew :app:lintDebug --no-daemon --stacktrace
+        default: ./gradlew :app:lintDebug --stacktrace
       unit-test-command:
         description: JVM unit and Robolectric test command.
         required: false
         type: string
-        default: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+        default: ./gradlew :app:testDebugUnitTest --stacktrace
       instrumented-test-command:
         description: Instrumented test command run inside the Android emulator. Required to enable the instrumented-tests job.
         required: false
