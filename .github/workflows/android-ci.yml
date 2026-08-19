@@ -22,7 +22,7 @@ on:
         description: Gradle version installed before generating or running the wrapper.
         required: false
         type: string
-        default: '9.2.1'
+        default: ''
       gradle-wrapper-command:
         description: Gradle wrapper generation command. Set to an empty string when the wrapper is checked in and should not be generated.
         required: false
