@@ -4,13 +4,23 @@
     "github>valomedia/renovate-config",
     "helpers:pinGitHubActionDigestsToSemver"
   ],
+  "customDatasources": {
+    "android-api-level": {
+      "description": "Android API levels, from the apiVersion field endoflife.date records per Android release.",
+      "defaultRegistryUrlTemplate": "https://endoflife.date/api/v1/products/android",
+      "format": "json",
+      "transformTemplates": [
+        "{ \"releases\": result.releases[custom.apiVersion != null].{ \"version\": custom.apiVersion, \"releaseTimestamp\": releaseDate, \"isDeprecated\": isEol }, \"homepage\": \"https://developer.android.com/tools/releases/platforms\" }"
+      ]
+    }
+  },
   "customManagers": [
     {
       "customType": "regex",
       "description": "Update versions in reusable workflow input defaults that carry a renovate annotation.",
       "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z0-9-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[a-z0-9-]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+default: '?(?:[a-z]+-)?(?<currentValue>v?[0-9][^'\\s]*)'?"
+        "# renovate: datasource=(?<datasource>[a-z0-9.-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[a-z0-9-]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+default: '?(?:[a-z]+-)?(?<currentValue>v?[0-9][^'\\s]*)'?"
       ]
     }
   ]

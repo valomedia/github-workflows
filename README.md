@@ -270,21 +270,42 @@ The annotated defaults are:
   tracked against Node.js LTS releases.
 - `java-version` in `android-ci.yml`,
   tracked against Temurin JDK major versions.
+- `instrumented-test-api-level` in `android-ci.yml`,
+  tracked against Android API levels.
 - `runs-on` in `ios-ci.yml`,
   tracked against the GitHub-hosted macOS runner images.
 
-All three are major-version pins,
+All of them are major-version pins,
 and the shared preset sends major updates to the dependency dashboard,
 so each one is approved by hand rather than merged automatically.
 
-Some versioned defaults are deliberately left out,
-because Renovate has no datasource for them:
+The runtime versions are major-only on purpose.
+`actions/setup-java` and `actions/setup-node` treat `'17'` and `'24'` as ranges
+and install the newest matching release the runner offers,
+so a major-only default picks up patch releases without a pull request.
+An exact build would instead sit frozen until someone merged one,
+and would cost a JDK or Node download
+whenever it differed from the build cached on the runner image.
+Consumers that need an exact build can set the input.
 
-- `instrumented-test-api-level` in `android-ci.yml`,
-  the Android emulator API level.
+Android API levels have no built-in Renovate datasource,
+so `renovate.json` defines the `android-api-level` custom datasource.
+It reads the API level that endoflife.date records for each Android release.
+Two things are worth checking before approving one of those updates:
+whether an emulator system image exists for the new API level,
+because a released Android version does not guarantee one,
+and whether the newest API level is the right test target at all.
+A consumer that tests against its own `targetSdk`
+should set `instrumented-test-api-level` rather than take the default.
+
+Some versioned defaults are deliberately left unmanaged:
+
 - `simulator-device` in `ios-ci.yml`.
+  The runner's own `xcrun simctl` device list is the only authority
+  on which iPhone simulators exist,
+  so there is nothing to track it against.
   A stale value degrades rather than fails,
-  because the workflow falls back to an available iPhone simulator device type.
+  because the workflow falls back to an available iPhone device type.
 - `xcode-path` in `ios-ci.yml` selects `/Applications/Xcode.app`,
   which is the runner image's default Xcode and carries no version.
 - `runs-on` in `android-ci.yml` and the `ubuntu-latest` job labels,

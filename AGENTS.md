@@ -99,9 +99,17 @@ Renovate rewrites the `default:` value in place and leaves the annotation alone,
 so never write the current version into the annotation text.
 
 Only annotate a default that a datasource can actually resolve.
-The Android emulator API level, the preferred iPhone simulator device,
-and the unversioned `/Applications/Xcode.app` path have no datasource
+When no built-in datasource fits, a `customDatasources` entry may still work:
+`android-api-level` reads Android API levels from endoflife.date that way.
+The preferred iPhone simulator device
+and the unversioned `/Applications/Xcode.app` path have no source to track
 and stay manual; `README.md` records why.
+
+Keep runtime versions such as `java-version` and `node-version` major-only.
+The setup actions resolve a major as a range
+and install the newest matching release the runner offers,
+so a major-only default stays current without a pull request,
+while an exact build would freeze until one was merged.
 
 Verify a new annotation with a dry run
 before assuming a datasource and versioning combination behaves.

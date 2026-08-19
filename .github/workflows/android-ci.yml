@@ -63,6 +63,7 @@ on:
         description: Android API level used by the instrumented test emulator.
         required: false
         type: number
+        # renovate: datasource=custom.android-api-level depName=android-api-level versioning=docker
         default: 35
       instrumented-test-arch:
         description: Android emulator CPU architecture used for instrumented tests.
