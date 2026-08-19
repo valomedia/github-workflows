@@ -1,6 +1,6 @@
 # valo.media GitHub Workflows
 
-Private shared GitHub Actions automation for valo.media repositories.
+Shared GitHub Actions automation for valo.media repositories.
 
 ## Node/npm CI
 

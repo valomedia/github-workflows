@@ -6,36 +6,27 @@ These instructions apply to the entire repository.
 
 ## Repository Purpose
 
-This private repository contains shared valo.media GitHub Actions automation.
+This repository contains shared valo.media GitHub Actions automation.
+It is public, so a consumer can check it out with the default `GITHUB_TOKEN`.
 
 The main reusable workflow is `.github/workflows/scheduled-sftp-release.yml`.
 It is called from consumer repositories through `workflow_call`.
 
-Workflow steps are inlined in the workflow files themselves.
-Do not extract shared steps into composite actions under `actions/`.
-A composite action in this repository has to be referenced by an explicit Git ref,
-and those refs go stale as soon as the workflow and the action are released together.
-Duplicating a few steps across workflows is cheaper than keeping those refs correct.
-
-Sharing a file needs no ref:
-a called workflow can check out its own repository
+Shared steps may be inlined in the workflow files
+or extracted into a script or composite action under `actions/`.
+Neither needs a Git ref that goes stale.
+A called workflow can check out its own repository
 at `${{ job.workflow_repository }}` and `${{ job.workflow_sha }}`,
-which always resolves to the commit the running workflow came from.
-This covers composite actions too.
-`uses:` accepts no expressions,
-but a workspace path is a literal,
-so an action in that checkout is referenced as `uses: ./<path>/actions/<name>`
-and carries no ref to go stale either.
+which always resolves to the commit the running workflow came from,
+and an action in that checkout is referenced by workspace path,
+as `uses: ./<path>/actions/<name>`,
+which is a literal and so needs none of the expressions `uses:` forbids.
 
-Place the tools checkout after the caller's own checkout.
+Place that checkout after the caller's own checkout.
 A local action resolves when its step runs,
 and `actions/checkout` cleans untracked files out of the directory it checks out,
 so a caller checkout that ran second would delete the tools first.
-While this repository is private every consumer also needs a token secret,
-because `github.token` only reaches the calling repository.
 A one-line step is not worth a checkout; a real script or action is.
-Revisit the rule above before adding anything under `actions/`:
-its stale-ref rationale no longer applies.
 
 ## Validation
 
