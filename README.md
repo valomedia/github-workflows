@@ -168,20 +168,8 @@ The default build and test commands disable code signing
 and use the per-job simulator through `IOS_CI_SIMULATOR_UDID`.
 
 Each job creates its own simulator
-on the newest iPhone Pro Max device type the runner offers,
-so the device follows the runner image
-instead of naming a model that ages out.
-Set `simulator-device` to a device name to pin one instead:
-
-```yaml
-jobs:
-  ci:
-    uses: valomedia/github-workflows/.github/workflows/ios-ci.yml@v1
-    with:
-      workspace: Chronos.xcworkspace
-      scheme: Pandatrack
-      simulator-device: iPhone 17
-```
+on the newest iPhone Pro Max device type the runner offers.
+Set `simulator-device` to use a specific device instead.
 
 Enable instrumented tests by supplying either an explicit command
 or an `xcodebuild -only-testing` value for the default command:
@@ -245,90 +233,24 @@ from overwrite and deletion.
 
 ## Dependency updates
 
-Renovate keeps the pinned versions in this repository current.
-`renovate.json` extends the shared `github>valomedia/renovate-config` preset,
-so the update schedule, automerge policy, and labels live there.
+Renovate keeps the pinned versions current.
+`renovate.json` extends the shared `github>valomedia/renovate-config` preset.
 
-Every action reference is pinned to a full commit SHA
-with the released version in a trailing comment:
+Action references are pinned to a commit SHA
+with the released version in a trailing comment,
+which is what lets Renovate offer a version instead of a bare digest.
 
-```yaml
-- name: Check out repository
-  uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-```
-
-Renovate reads the version from that comment,
-so it opens `v7.0.1` to `v7.1.0` pull requests
-instead of unlabelled digest bumps,
-and it rewrites the SHA and the comment together.
-The `helpers:pinGitHubActionDigestsToSemver` preset
-pins newly added action references the same way
-and keeps moving major tags such as `v7` out of the candidate versions.
-
-Versions that live in `workflow_call` input defaults are not action references,
-so no Renovate manager finds them on its own.
-They carry an annotation instead,
-directly above the `default:` line they describe:
+Versions in `workflow_call` input defaults are not action references,
+so they carry an annotation above the `default:` line
+for the custom manager in `renovate.json` to match:
 
 ```yaml
-node-version:
-  description: Node.js version used for build, lint, and test jobs.
-  required: false
-  type: string
-  # renovate: datasource=node-version depName=node versioning=node
-  default: '24'
+# renovate: datasource=node-version depName=node versioning=node
+default: '24'
 ```
 
-The `customManagers` entry in `renovate.json` matches those annotations.
-The annotated defaults are:
-
-- `node-version` in `node-npm-ci.yml` and `scheduled-sftp-release.yml`,
-  tracked against Node.js LTS releases.
-- `java-version` in `android-ci.yml`,
-  tracked against Temurin JDK major versions.
-- `instrumented-test-api-level` in `android-ci.yml`,
-  tracked against Android API levels.
-- `runs-on` in `ios-ci.yml`,
-  tracked against the GitHub-hosted macOS runner images.
-
-All of them are major-version pins,
-and the shared preset sends major updates to the dependency dashboard,
-so each one is approved by hand rather than merged automatically.
-
-The runtime versions are major-only on purpose.
-`actions/setup-java` and `actions/setup-node` treat `'17'` and `'24'` as ranges
-and install the newest matching release the runner offers,
-so a major-only default picks up patch releases without a pull request.
-An exact build would instead sit frozen until someone merged one,
-and would cost a JDK or Node download
-whenever it differed from the build cached on the runner image.
-Consumers that need an exact build can set the input.
-
-Android API levels have no built-in Renovate datasource,
-so `renovate.json` defines the `android-api-level` custom datasource.
-It reads the API level that endoflife.date records for each Android release.
-Two things are worth checking before approving one of those updates:
-whether an emulator system image exists for the new API level,
-because a released Android version does not guarantee one,
-and whether the newest API level is the right test target at all.
-A consumer that tests against its own `targetSdk`
-should set `instrumented-test-api-level` rather than take the default.
-
-Some versioned defaults are deliberately left unmanaged:
-
-- `xcode-path` in `ios-ci.yml` selects `/Applications/Xcode.app`,
-  which is the runner image's default Xcode and carries no version.
-- `runs-on` in `android-ci.yml` and the `ubuntu-latest` job labels,
-  which follow the runner image's own `latest` alias.
-
-Review those by hand when the runner images change.
-
-`simulator-device` needs no tracking at all.
-The runner's own `xcrun simctl` device list is the only authority
-on which iPhone simulators exist,
-so the workflow reads that list at run time
-and takes the newest Pro Max device rather than pinning a model name.
-
-A merged Renovate pull request reaches consumers only after a release,
-because consumers reference these workflows by Git ref.
-Publish a new `v1.x.y` tag and advance the `v1` branch as usual.
+`node-version`, `java-version`, `instrumented-test-api-level`,
+and the iOS `runs-on` label are annotated.
+Android API levels come from a custom datasource over endoflife.date,
+because Renovate has no built-in one.
+`xcode-path` and the `ubuntu-latest` labels hold no version to track.

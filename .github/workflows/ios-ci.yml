@@ -93,50 +93,24 @@ jobs:
         run: |
           set -euo pipefail
 
-          device_identifier="$(python3 -c '
-          import json
-          import os
-          import re
-          import subprocess
+          device_types="$(xcrun simctl list devicetypes --json)"
 
-          result = subprocess.run(
-              ["xcrun", "simctl", "list", "--json", "devicetypes"],
-              check=True,
-              capture_output=True,
-              text=True,
-          )
-          preferred_device = os.environ["IOS_CI_SIMULATOR_DEVICE"]
-          device_types = [
-              device_type
-              for device_type in json.loads(result.stdout).get("devicetypes", [])
-              if "iPhone" in str(device_type.get("name", ""))
-              and device_type.get("identifier")
-          ]
-          if not device_types:
-              raise SystemExit("No available iPhone simulator device types were found.")
+          if [ -n "${IOS_CI_SIMULATOR_DEVICE}" ]; then
+            device_identifier="$(jq -r --arg name "${IOS_CI_SIMULATOR_DEVICE}" \
+              'first(.devicetypes[] | select(.name == $name)).identifier // ""' \
+              <<< "${device_types}")"
+          else
+            device_identifier="$(jq -r \
+              '[.devicetypes[] | select(.name | test("^iPhone [0-9]+ Pro Max$"))]
+                | max_by(.name | capture("^iPhone (?<major>[0-9]+) ").major | tonumber).identifier // ""' \
+              <<< "${device_types}")"
+          fi
 
-          pro_max_devices = {}
-          for candidate in device_types:
-              match = re.fullmatch(r"iPhone (\d+) Pro Max", str(candidate["name"]))
-              if match:
-                  pro_max_devices[int(match.group(1))] = candidate
+          if [ -z "${device_identifier}" ]; then
+            echo "::error::No simulator device type matched ${IOS_CI_SIMULATOR_DEVICE:-the newest iPhone Pro Max}."
+            exit 1
+          fi
 
-          fallback_device = (
-              pro_max_devices[max(pro_max_devices)]
-              if pro_max_devices
-              else device_types[-1]
-          )
-
-          device_type = next(
-              (
-                  candidate
-                  for candidate in device_types
-                  if preferred_device and candidate.get("name") == preferred_device
-              ),
-              fallback_device,
-          )
-          print(device_type["identifier"])
-          ')"
           simulator_udid="$(xcrun simctl create "${IOS_CI_SIMULATOR_NAME}" "${device_identifier}")"
 
           echo "Created ${IOS_CI_SIMULATOR_NAME} (${simulator_udid}) using ${device_identifier}."
@@ -174,50 +148,24 @@ jobs:
         run: |
           set -euo pipefail
 
-          device_identifier="$(python3 -c '
-          import json
-          import os
-          import re
-          import subprocess
+          device_types="$(xcrun simctl list devicetypes --json)"
 
-          result = subprocess.run(
-              ["xcrun", "simctl", "list", "--json", "devicetypes"],
-              check=True,
-              capture_output=True,
-              text=True,
-          )
-          preferred_device = os.environ["IOS_CI_SIMULATOR_DEVICE"]
-          device_types = [
-              device_type
-              for device_type in json.loads(result.stdout).get("devicetypes", [])
-              if "iPhone" in str(device_type.get("name", ""))
-              and device_type.get("identifier")
-          ]
-          if not device_types:
-              raise SystemExit("No available iPhone simulator device types were found.")
+          if [ -n "${IOS_CI_SIMULATOR_DEVICE}" ]; then
+            device_identifier="$(jq -r --arg name "${IOS_CI_SIMULATOR_DEVICE}" \
+              'first(.devicetypes[] | select(.name == $name)).identifier // ""' \
+              <<< "${device_types}")"
+          else
+            device_identifier="$(jq -r \
+              '[.devicetypes[] | select(.name | test("^iPhone [0-9]+ Pro Max$"))]
+                | max_by(.name | capture("^iPhone (?<major>[0-9]+) ").major | tonumber).identifier // ""' \
+              <<< "${device_types}")"
+          fi
 
-          pro_max_devices = {}
-          for candidate in device_types:
-              match = re.fullmatch(r"iPhone (\d+) Pro Max", str(candidate["name"]))
-              if match:
-                  pro_max_devices[int(match.group(1))] = candidate
+          if [ -z "${device_identifier}" ]; then
+            echo "::error::No simulator device type matched ${IOS_CI_SIMULATOR_DEVICE:-the newest iPhone Pro Max}."
+            exit 1
+          fi
 
-          fallback_device = (
-              pro_max_devices[max(pro_max_devices)]
-              if pro_max_devices
-              else device_types[-1]
-          )
-
-          device_type = next(
-              (
-                  candidate
-                  for candidate in device_types
-                  if preferred_device and candidate.get("name") == preferred_device
-              ),
-              fallback_device,
-          )
-          print(device_type["identifier"])
-          ')"
           simulator_udid="$(xcrun simctl create "${IOS_CI_SIMULATOR_NAME}" "${device_identifier}")"
 
           echo "Created ${IOS_CI_SIMULATOR_NAME} (${simulator_udid}) using ${device_identifier}."
@@ -265,50 +213,24 @@ jobs:
         run: |
           set -euo pipefail
 
-          device_identifier="$(python3 -c '
-          import json
-          import os
-          import re
-          import subprocess
+          device_types="$(xcrun simctl list devicetypes --json)"
 
-          result = subprocess.run(
-              ["xcrun", "simctl", "list", "--json", "devicetypes"],
-              check=True,
-              capture_output=True,
-              text=True,
-          )
-          preferred_device = os.environ["IOS_CI_SIMULATOR_DEVICE"]
-          device_types = [
-              device_type
-              for device_type in json.loads(result.stdout).get("devicetypes", [])
-              if "iPhone" in str(device_type.get("name", ""))
-              and device_type.get("identifier")
-          ]
-          if not device_types:
-              raise SystemExit("No available iPhone simulator device types were found.")
+          if [ -n "${IOS_CI_SIMULATOR_DEVICE}" ]; then
+            device_identifier="$(jq -r --arg name "${IOS_CI_SIMULATOR_DEVICE}" \
+              'first(.devicetypes[] | select(.name == $name)).identifier // ""' \
+              <<< "${device_types}")"
+          else
+            device_identifier="$(jq -r \
+              '[.devicetypes[] | select(.name | test("^iPhone [0-9]+ Pro Max$"))]
+                | max_by(.name | capture("^iPhone (?<major>[0-9]+) ").major | tonumber).identifier // ""' \
+              <<< "${device_types}")"
+          fi
 
-          pro_max_devices = {}
-          for candidate in device_types:
-              match = re.fullmatch(r"iPhone (\d+) Pro Max", str(candidate["name"]))
-              if match:
-                  pro_max_devices[int(match.group(1))] = candidate
+          if [ -z "${device_identifier}" ]; then
+            echo "::error::No simulator device type matched ${IOS_CI_SIMULATOR_DEVICE:-the newest iPhone Pro Max}."
+            exit 1
+          fi
 
-          fallback_device = (
-              pro_max_devices[max(pro_max_devices)]
-              if pro_max_devices
-              else device_types[-1]
-          )
-
-          device_type = next(
-              (
-                  candidate
-                  for candidate in device_types
-                  if preferred_device and candidate.get("name") == preferred_device
-              ),
-              fallback_device,
-          )
-          print(device_type["identifier"])
-          ')"
           simulator_udid="$(xcrun simctl create "${IOS_CI_SIMULATOR_NAME}" "${device_identifier}")"
 
           echo "Created ${IOS_CI_SIMULATOR_NAME} (${simulator_udid}) using ${device_identifier}."
@@ -364,50 +286,24 @@ jobs:
         run: |
           set -euo pipefail
 
-          device_identifier="$(python3 -c '
-          import json
-          import os
-          import re
-          import subprocess
+          device_types="$(xcrun simctl list devicetypes --json)"
 
-          result = subprocess.run(
-              ["xcrun", "simctl", "list", "--json", "devicetypes"],
-              check=True,
-              capture_output=True,
-              text=True,
-          )
-          preferred_device = os.environ["IOS_CI_SIMULATOR_DEVICE"]
-          device_types = [
-              device_type
-              for device_type in json.loads(result.stdout).get("devicetypes", [])
-              if "iPhone" in str(device_type.get("name", ""))
-              and device_type.get("identifier")
-          ]
-          if not device_types:
-              raise SystemExit("No available iPhone simulator device types were found.")
+          if [ -n "${IOS_CI_SIMULATOR_DEVICE}" ]; then
+            device_identifier="$(jq -r --arg name "${IOS_CI_SIMULATOR_DEVICE}" \
+              'first(.devicetypes[] | select(.name == $name)).identifier // ""' \
+              <<< "${device_types}")"
+          else
+            device_identifier="$(jq -r \
+              '[.devicetypes[] | select(.name | test("^iPhone [0-9]+ Pro Max$"))]
+                | max_by(.name | capture("^iPhone (?<major>[0-9]+) ").major | tonumber).identifier // ""' \
+              <<< "${device_types}")"
+          fi
 
-          pro_max_devices = {}
-          for candidate in device_types:
-              match = re.fullmatch(r"iPhone (\d+) Pro Max", str(candidate["name"]))
-              if match:
-                  pro_max_devices[int(match.group(1))] = candidate
+          if [ -z "${device_identifier}" ]; then
+            echo "::error::No simulator device type matched ${IOS_CI_SIMULATOR_DEVICE:-the newest iPhone Pro Max}."
+            exit 1
+          fi
 
-          fallback_device = (
-              pro_max_devices[max(pro_max_devices)]
-              if pro_max_devices
-              else device_types[-1]
-          )
-
-          device_type = next(
-              (
-                  candidate
-                  for candidate in device_types
-                  if preferred_device and candidate.get("name") == preferred_device
-              ),
-              fallback_device,
-          )
-          print(device_type["identifier"])
-          ')"
           simulator_udid="$(xcrun simctl create "${IOS_CI_SIMULATOR_NAME}" "${device_identifier}")"
 
           echo "Created ${IOS_CI_SIMULATOR_NAME} (${simulator_udid}) using ${device_identifier}."
