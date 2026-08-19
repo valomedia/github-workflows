@@ -89,13 +89,14 @@ generates the Gradle wrapper by default,
 and then runs the job-specific command.
 
 By default it mirrors JetNews CI by using Java 17,
-installing Gradle 9.2.1,
-running `gradle wrapper --no-daemon`,
+leaving `gradle-version` empty so the wrapper is generated
+with the Gradle on the runner image,
+running `gradle :wrapper`,
 and using these commands:
 
-1. `./gradlew :app:assembleDebug --no-daemon --stacktrace`
-2. `./gradlew :app:lintDebug --no-daemon --stacktrace`
-3. `./gradlew :app:testDebugUnitTest --no-daemon --stacktrace`
+1. `./gradlew :app:assembleDebug --stacktrace`
+2. `./gradlew :app:lintDebug --stacktrace`
+3. `./gradlew :app:testDebugUnitTest --stacktrace`
 4. the instrumented test command, when supplied
 
 The build job uploads `app/build/outputs/apk/debug/*.apk`
@@ -112,7 +113,7 @@ jobs:
   ci:
     uses: valomedia/github-workflows/.github/workflows/android-ci.yml@v1
     with:
-      instrumented-test-command: ./gradlew connectedCheck --no-daemon --stacktrace
+      instrumented-test-command: ./gradlew connectedCheck --stacktrace
 ```
 
 For repositories that need compatibility overrides,
