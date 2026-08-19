@@ -11,25 +11,26 @@ This private repository contains shared valo.media GitHub Actions automation.
 The main reusable workflow is `.github/workflows/scheduled-sftp-release.yml`.
 It is called from consumer repositories through `workflow_call`.
 
-The private composite actions under `actions/` are implementation details of the reusable workflow:
-
-- `actions/sftp-deploy` synchronizes a built artifact directory to SFTP with `lftp mirror --reverse --delete`.
-- `actions/calendar-release` creates calendar-tagged GitHub Releases with generated notes.
+Workflow steps are inlined in the workflow files themselves.
+Do not extract shared steps into composite actions under `actions/`.
+A composite action in this repository has to be referenced by an explicit Git ref,
+and those refs go stale as soon as the workflow and the action are released together.
+Duplicating a few steps across workflows is cheaper than keeping those refs correct.
 
 ## Validation
 
 There is no package manifest or local test suite in this repository.
 For documentation-only changes,
-validate by inspecting the changed Markdown and relevant workflow/action YAML.
+validate by inspecting the changed Markdown and relevant workflow YAML.
 
-For workflow or composite-action changes,
+For workflow changes,
 run at least a YAML parse check when available,
 and inspect the affected `workflow_call` inputs, secrets, permissions, and action references.
 Do not run SFTP deployment commands locally.
 
 ## Reusable Workflow Versioning
 
-Consumers reference reusable workflows and composite actions by Git ref,
+Consumers reference reusable workflows by Git ref,
 for example `valomedia/github-workflows/.github/workflows/scheduled-sftp-release.yml@v1`.
 
 GitHub resolves `@v1` as the literal Git ref named `v1`.

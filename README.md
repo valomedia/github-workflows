@@ -222,6 +222,6 @@ creates the GitHub Release tag at that verified commit,
 deploys it to SFTP,
 and creates a GitHub Release with GitHub-generated notes.
 
-The SFTP deploy action deletes stale remote app files during sync
+The SFTP deploy step deletes stale remote app files during sync
 and excludes root `.ht*` files such as `.htaccess`
 from overwrite and deletion.
