@@ -1,6 +1,6 @@
 # valo.media GitHub Workflows
 
-Private shared GitHub Actions automation for valo.media repositories.
+Shared GitHub Actions automation for valo.media repositories.
 
 ## Node/npm CI
 
@@ -89,13 +89,14 @@ generates the Gradle wrapper by default,
 and then runs the job-specific command.
 
 By default it mirrors JetNews CI by using Java 17,
-installing Gradle 9.2.1,
-running `gradle wrapper --no-daemon`,
+leaving `gradle-version` empty so the wrapper is generated
+with the Gradle on the runner image,
+running `gradle :wrapper`,
 and using these commands:
 
-1. `./gradlew :app:assembleDebug --no-daemon --stacktrace`
-2. `./gradlew :app:lintDebug --no-daemon --stacktrace`
-3. `./gradlew :app:testDebugUnitTest --no-daemon --stacktrace`
+1. `./gradlew :app:assembleDebug --stacktrace`
+2. `./gradlew :app:lintDebug --stacktrace`
+3. `./gradlew :app:testDebugUnitTest --stacktrace`
 4. the instrumented test command, when supplied
 
 The build job uploads `app/build/outputs/apk/debug/*.apk`
@@ -112,7 +113,7 @@ jobs:
   ci:
     uses: valomedia/github-workflows/.github/workflows/android-ci.yml@v1
     with:
-      instrumented-test-command: ./gradlew connectedCheck --no-daemon --stacktrace
+      instrumented-test-command: ./gradlew connectedCheck --stacktrace
 ```
 
 For repositories that need compatibility overrides,
@@ -165,6 +166,10 @@ runs `./scripts/lint.sh`,
 and uses `xcodebuild` for the configured workspace and scheme.
 The default build and test commands disable code signing
 and use the per-job simulator through `IOS_CI_SIMULATOR_UDID`.
+
+Each job creates its own simulator
+on the newest iPhone Pro Max device type the runner offers.
+Set `simulator-device` to use a specific device instead.
 
 Enable instrumented tests by supplying either an explicit command
 or an `xcodebuild -only-testing` value for the default command:
@@ -225,3 +230,27 @@ and creates a GitHub Release with GitHub-generated notes.
 The SFTP deploy step deletes stale remote app files during sync
 and excludes root `.ht*` files such as `.htaccess`
 from overwrite and deletion.
+
+## Dependency updates
+
+Renovate keeps the pinned versions current.
+`renovate.json` extends the shared `github>valomedia/renovate-config` preset.
+
+Action references are pinned to a commit SHA
+with the released version in a trailing comment,
+which is what lets Renovate offer a version instead of a bare digest.
+
+Versions in `workflow_call` input defaults are not action references,
+so they carry an annotation above the `default:` line
+for the custom manager in `renovate.json` to match:
+
+```yaml
+# renovate: datasource=node-version depName=node versioning=node
+default: '24'
+```
+
+`node-version`, `java-version`, `instrumented-test-api-level`,
+and the iOS `runs-on` label are annotated.
+Android API levels come from a custom datasource over endoflife.date,
+because Renovate has no built-in one.
+`xcode-path` and the `ubuntu-latest` labels hold no version to track.
