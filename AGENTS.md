@@ -17,15 +17,25 @@ A composite action in this repository has to be referenced by an explicit Git re
 and those refs go stale as soon as the workflow and the action are released together.
 Duplicating a few steps across workflows is cheaper than keeping those refs correct.
 
-Sharing a script file needs no ref:
+Sharing a file needs no ref:
 a called workflow can check out its own repository
 at `${{ job.workflow_repository }}` and `${{ job.workflow_sha }}`,
 which always resolves to the commit the running workflow came from.
-Two limits apply.
-`uses:` accepts no expressions, so this does not extend to composite actions,
-and `github.token` only reaches the calling repository,
-so every consumer needs a token secret while this repository is private.
-A one-line step is not worth a checkout; a real script is.
+This covers composite actions too.
+`uses:` accepts no expressions,
+but a workspace path is a literal,
+so an action in that checkout is referenced as `uses: ./<path>/actions/<name>`
+and carries no ref to go stale either.
+
+Place the tools checkout after the caller's own checkout.
+A local action resolves when its step runs,
+and `actions/checkout` cleans untracked files out of the directory it checks out,
+so a caller checkout that ran second would delete the tools first.
+While this repository is private every consumer also needs a token secret,
+because `github.token` only reaches the calling repository.
+A one-line step is not worth a checkout; a real script or action is.
+Revisit the rule above before adding anything under `actions/`:
+its stale-ref rationale no longer applies.
 
 ## Validation
 
