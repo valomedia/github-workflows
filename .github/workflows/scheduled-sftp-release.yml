@@ -17,6 +17,7 @@ on:
         description: Node.js version used to build the deployable artifact.
         required: false
         type: string
+        # renovate: datasource=node-version depName=node versioning=node
         default: '22'
       build-command:
         description: Command that creates the deployable artifact.
@@ -83,7 +84,7 @@ jobs:
 
     steps:
       - name: Check out release branch
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.branch }}
           fetch-depth: 0
@@ -162,7 +163,7 @@ jobs:
 
       - name: Set up Node.js
         if: steps.ci-check.outputs.ci_passed == 'true'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm

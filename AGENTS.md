@@ -28,6 +28,16 @@ run at least a YAML parse check when available,
 and inspect the affected `workflow_call` inputs, secrets, permissions, and action references.
 Do not run SFTP deployment commands locally.
 
+For Renovate configuration changes,
+validate `renovate.json` with `renovate-config-validator`,
+and check what Renovate extracts with
+`RENOVATE_PLATFORM=local renovate --dry-run=extract`.
+The local platform reads Git-tracked files,
+so stage new or changed files before that dry run.
+A token-less dry run cannot resolve `github>valomedia/renovate-config`
+and reports it as a missing preset;
+inline the preset's contents to exercise the rest of the configuration.
+
 ## Reusable Workflow Versioning
 
 Consumers reference reusable workflows by Git ref,
@@ -55,3 +65,50 @@ or to a full commit SHA.
 Do not create a tag named `v1` alongside the `v1` branch.
 The tag wins when GitHub resolves reusable workflow references,
 so a same-named tag would hide the branch and leave `@v1` consumers on the tag's commit.
+
+## Dependency Updates
+
+Renovate is configured in `renovate.json`,
+which extends the shared `github>valomedia/renovate-config` preset.
+Repository-specific rules belong in `renovate.json`;
+shared policy belongs in the preset repository.
+
+Pin every action reference to a full commit SHA
+with the released version in a trailing comment,
+for example `uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`.
+Use the commit the version tag resolves to,
+not the SHA of an annotated tag object,
+and use an exact `vX.Y.Z` tag in the comment rather than a moving major tag such as `v7`.
+Renovate then proposes versioned updates instead of bare digest bumps.
+Do not replace a pinned SHA with a floating tag.
+
+Annotate version-bearing `workflow_call` input defaults for Renovate.
+The annotation goes directly above the `default:` line it describes:
+
+```yaml
+# renovate: datasource=node-version depName=node versioning=node
+default: '24'
+```
+
+The `customManagers` entry in `renovate.json` reads `datasource` and `depName`,
+plus the optional `packageName`, `versioning`, and `extractVersion` fields.
+The annotated value has to start with a digit,
+optionally after a lowercase label prefix such as the `macos-` in `macos-15`.
+
+Renovate rewrites the `default:` value in place and leaves the annotation alone,
+so never write the current version into the annotation text.
+
+Only annotate a default that a datasource can actually resolve.
+The Android emulator API level, the preferred iPhone simulator device,
+and the unversioned `/Applications/Xcode.app` path have no datasource
+and stay manual; `README.md` records why.
+
+Verify a new annotation with a dry run
+before assuming a datasource and versioning combination behaves.
+A partial version such as `'17'` needs versions of the same precision to compare against,
+so an annotation can look right and silently produce
+no updates at all or an over-specific value.
+
+When a Renovate pull request changes a default version,
+update the matching version in `README.md` in the same pull request.
+Renovate does not edit prose.

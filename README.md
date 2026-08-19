@@ -225,3 +225,72 @@ and creates a GitHub Release with GitHub-generated notes.
 The SFTP deploy step deletes stale remote app files during sync
 and excludes root `.ht*` files such as `.htaccess`
 from overwrite and deletion.
+
+## Dependency updates
+
+Renovate keeps the pinned versions in this repository current.
+`renovate.json` extends the shared `github>valomedia/renovate-config` preset,
+so the update schedule, automerge policy, and labels live there.
+
+Every action reference is pinned to a full commit SHA
+with the released version in a trailing comment:
+
+```yaml
+- name: Check out repository
+  uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+```
+
+Renovate reads the version from that comment,
+so it opens `v7.0.1` to `v7.1.0` pull requests
+instead of unlabelled digest bumps,
+and it rewrites the SHA and the comment together.
+The `helpers:pinGitHubActionDigestsToSemver` preset
+pins newly added action references the same way
+and keeps moving major tags such as `v7` out of the candidate versions.
+
+Versions that live in `workflow_call` input defaults are not action references,
+so no Renovate manager finds them on its own.
+They carry an annotation instead,
+directly above the `default:` line they describe:
+
+```yaml
+node-version:
+  description: Node.js version used for build, lint, and test jobs.
+  required: false
+  type: string
+  # renovate: datasource=node-version depName=node versioning=node
+  default: '24'
+```
+
+The `customManagers` entry in `renovate.json` matches those annotations.
+The annotated defaults are:
+
+- `node-version` in `node-npm-ci.yml` and `scheduled-sftp-release.yml`,
+  tracked against Node.js LTS releases.
+- `java-version` in `android-ci.yml`,
+  tracked against Temurin JDK major versions.
+- `runs-on` in `ios-ci.yml`,
+  tracked against the GitHub-hosted macOS runner images.
+
+All three are major-version pins,
+and the shared preset sends major updates to the dependency dashboard,
+so each one is approved by hand rather than merged automatically.
+
+Some versioned defaults are deliberately left out,
+because Renovate has no datasource for them:
+
+- `instrumented-test-api-level` in `android-ci.yml`,
+  the Android emulator API level.
+- `simulator-device` in `ios-ci.yml`.
+  A stale value degrades rather than fails,
+  because the workflow falls back to an available iPhone simulator device type.
+- `xcode-path` in `ios-ci.yml` selects `/Applications/Xcode.app`,
+  which is the runner image's default Xcode and carries no version.
+- `runs-on` in `android-ci.yml` and the `ubuntu-latest` job labels,
+  which follow the runner image's own `latest` alias.
+
+Review those by hand when the runner images change.
+
+A merged Renovate pull request reaches consumers only after a release,
+because consumers reference these workflows by Git ref.
+Publish a new `v1.x.y` tag and advance the `v1` branch as usual.

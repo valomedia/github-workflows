@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>valomedia/renovate-config",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update versions in reusable workflow input defaults that carry a renovate annotation.",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z0-9-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[a-z0-9-]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+default: '?(?:[a-z]+-)?(?<currentValue>v?[0-9][^'\\s]*)'?"
+      ]
+    }
+  ]
+}
