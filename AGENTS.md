@@ -17,6 +17,16 @@ A composite action in this repository has to be referenced by an explicit Git re
 and those refs go stale as soon as the workflow and the action are released together.
 Duplicating a few steps across workflows is cheaper than keeping those refs correct.
 
+Sharing a script file needs no ref:
+a called workflow can check out its own repository
+at `${{ job.workflow_repository }}` and `${{ job.workflow_sha }}`,
+which always resolves to the commit the running workflow came from.
+Two limits apply.
+`uses:` accepts no expressions, so this does not extend to composite actions,
+and `github.token` only reaches the calling repository,
+so every consumer needs a token secret while this repository is private.
+A one-line step is not worth a checkout; a real script is.
+
 ## Validation
 
 There is no package manifest or local test suite in this repository.
