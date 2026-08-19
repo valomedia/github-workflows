@@ -56,10 +56,6 @@ jobs:
         if: ${{ inputs.build-command != '' }}
         run: ${{ inputs.build-command }}
 
-      - name: Skip build
-        if: ${{ inputs.build-command == '' }}
-        run: echo "No build command supplied; skipping build."
-
   lint:
     needs: build
     runs-on: ubuntu-latest
@@ -81,10 +77,6 @@ jobs:
       - name: Lint
         if: ${{ inputs.lint-command != '' }}
         run: ${{ inputs.lint-command }}
-
-      - name: Skip lint
-        if: ${{ inputs.lint-command == '' }}
-        run: echo "No lint command supplied; skipping lint."
 
   unit-tests:
     needs: lint

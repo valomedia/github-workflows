@@ -112,10 +112,6 @@ jobs:
         if: ${{ inputs.build-command != '' }}
         run: ${{ inputs.build-command }}
 
-      - name: Skip build validation
-        if: ${{ inputs.build-command == '' }}
-        run: echo "No build command supplied; skipping build validation."
-
       - name: Upload build artifact
         if: ${{ inputs.build-command != '' && inputs.build-artifact-path != '' }}
         uses: actions/upload-artifact@v7
@@ -152,10 +148,6 @@ jobs:
       - name: Android lint
         if: ${{ inputs.lint-command != '' }}
         run: ${{ inputs.lint-command }}
-
-      - name: Skip Android lint
-        if: ${{ inputs.lint-command == '' }}
-        run: echo "No lint command supplied; skipping Android lint."
 
   unit-tests:
     runs-on: ${{ inputs.runs-on }}
