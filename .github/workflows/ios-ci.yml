@@ -33,10 +33,10 @@ on:
         type: string
         default: iOS CI iPhone
       simulator-device:
-        description: Preferred iPhone simulator device name. An available iPhone simulator device type is used when this device is unavailable.
+        description: Specific iPhone simulator device name. Leave empty to use the newest available iPhone Pro Max device type.
         required: false
         type: string
-        default: iPhone 16
+        default: ''
       lint-command:
         description: Lint command. Set to an empty string to skip the lint step.
         required: false
@@ -96,6 +96,7 @@ jobs:
           device_identifier="$(python3 -c '
           import json
           import os
+          import re
           import subprocess
 
           result = subprocess.run(
@@ -114,13 +115,25 @@ jobs:
           if not device_types:
               raise SystemExit("No available iPhone simulator device types were found.")
 
+          pro_max_devices = {}
+          for candidate in device_types:
+              match = re.fullmatch(r"iPhone (\d+) Pro Max", str(candidate["name"]))
+              if match:
+                  pro_max_devices[int(match.group(1))] = candidate
+
+          fallback_device = (
+              pro_max_devices[max(pro_max_devices)]
+              if pro_max_devices
+              else device_types[-1]
+          )
+
           device_type = next(
               (
-                  device_type
-                  for device_type in device_types
-                  if device_type.get("name") == preferred_device
+                  candidate
+                  for candidate in device_types
+                  if preferred_device and candidate.get("name") == preferred_device
               ),
-              device_types[-1],
+              fallback_device,
           )
           print(device_type["identifier"])
           ')"
@@ -164,6 +177,7 @@ jobs:
           device_identifier="$(python3 -c '
           import json
           import os
+          import re
           import subprocess
 
           result = subprocess.run(
@@ -182,13 +196,25 @@ jobs:
           if not device_types:
               raise SystemExit("No available iPhone simulator device types were found.")
 
+          pro_max_devices = {}
+          for candidate in device_types:
+              match = re.fullmatch(r"iPhone (\d+) Pro Max", str(candidate["name"]))
+              if match:
+                  pro_max_devices[int(match.group(1))] = candidate
+
+          fallback_device = (
+              pro_max_devices[max(pro_max_devices)]
+              if pro_max_devices
+              else device_types[-1]
+          )
+
           device_type = next(
               (
-                  device_type
-                  for device_type in device_types
-                  if device_type.get("name") == preferred_device
+                  candidate
+                  for candidate in device_types
+                  if preferred_device and candidate.get("name") == preferred_device
               ),
-              device_types[-1],
+              fallback_device,
           )
           print(device_type["identifier"])
           ')"
@@ -242,6 +268,7 @@ jobs:
           device_identifier="$(python3 -c '
           import json
           import os
+          import re
           import subprocess
 
           result = subprocess.run(
@@ -260,13 +287,25 @@ jobs:
           if not device_types:
               raise SystemExit("No available iPhone simulator device types were found.")
 
+          pro_max_devices = {}
+          for candidate in device_types:
+              match = re.fullmatch(r"iPhone (\d+) Pro Max", str(candidate["name"]))
+              if match:
+                  pro_max_devices[int(match.group(1))] = candidate
+
+          fallback_device = (
+              pro_max_devices[max(pro_max_devices)]
+              if pro_max_devices
+              else device_types[-1]
+          )
+
           device_type = next(
               (
-                  device_type
-                  for device_type in device_types
-                  if device_type.get("name") == preferred_device
+                  candidate
+                  for candidate in device_types
+                  if preferred_device and candidate.get("name") == preferred_device
               ),
-              device_types[-1],
+              fallback_device,
           )
           print(device_type["identifier"])
           ')"
@@ -328,6 +367,7 @@ jobs:
           device_identifier="$(python3 -c '
           import json
           import os
+          import re
           import subprocess
 
           result = subprocess.run(
@@ -346,13 +386,25 @@ jobs:
           if not device_types:
               raise SystemExit("No available iPhone simulator device types were found.")
 
+          pro_max_devices = {}
+          for candidate in device_types:
+              match = re.fullmatch(r"iPhone (\d+) Pro Max", str(candidate["name"]))
+              if match:
+                  pro_max_devices[int(match.group(1))] = candidate
+
+          fallback_device = (
+              pro_max_devices[max(pro_max_devices)]
+              if pro_max_devices
+              else device_types[-1]
+          )
+
           device_type = next(
               (
-                  device_type
-                  for device_type in device_types
-                  if device_type.get("name") == preferred_device
+                  candidate
+                  for candidate in device_types
+                  if preferred_device and candidate.get("name") == preferred_device
               ),
-              device_types[-1],
+              fallback_device,
           )
           print(device_type["identifier"])
           ')"

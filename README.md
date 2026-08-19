@@ -167,6 +167,22 @@ and uses `xcodebuild` for the configured workspace and scheme.
 The default build and test commands disable code signing
 and use the per-job simulator through `IOS_CI_SIMULATOR_UDID`.
 
+Each job creates its own simulator
+on the newest iPhone Pro Max device type the runner offers,
+so the device follows the runner image
+instead of naming a model that ages out.
+Set `simulator-device` to a device name to pin one instead:
+
+```yaml
+jobs:
+  ci:
+    uses: valomedia/github-workflows/.github/workflows/ios-ci.yml@v1
+    with:
+      workspace: Chronos.xcworkspace
+      scheme: Pandatrack
+      simulator-device: iPhone 17
+```
+
 Enable instrumented tests by supplying either an explicit command
 or an `xcodebuild -only-testing` value for the default command:
 
@@ -300,18 +316,18 @@ should set `instrumented-test-api-level` rather than take the default.
 
 Some versioned defaults are deliberately left unmanaged:
 
-- `simulator-device` in `ios-ci.yml`.
-  The runner's own `xcrun simctl` device list is the only authority
-  on which iPhone simulators exist,
-  so there is nothing to track it against.
-  A stale value degrades rather than fails,
-  because the workflow falls back to an available iPhone device type.
 - `xcode-path` in `ios-ci.yml` selects `/Applications/Xcode.app`,
   which is the runner image's default Xcode and carries no version.
 - `runs-on` in `android-ci.yml` and the `ubuntu-latest` job labels,
   which follow the runner image's own `latest` alias.
 
 Review those by hand when the runner images change.
+
+`simulator-device` needs no tracking at all.
+The runner's own `xcrun simctl` device list is the only authority
+on which iPhone simulators exist,
+so the workflow reads that list at run time
+and takes the newest Pro Max device rather than pinning a model name.
 
 A merged Renovate pull request reaches consumers only after a release,
 because consumers reference these workflows by Git ref.

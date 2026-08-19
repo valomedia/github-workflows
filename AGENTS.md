@@ -101,9 +101,14 @@ so never write the current version into the annotation text.
 Only annotate a default that a datasource can actually resolve.
 When no built-in datasource fits, a `customDatasources` entry may still work:
 `android-api-level` reads Android API levels from endoflife.date that way.
-The preferred iPhone simulator device
-and the unversioned `/Applications/Xcode.app` path have no source to track
-and stay manual; `README.md` records why.
+The unversioned `/Applications/Xcode.app` path has no source to track
+and stays manual; `README.md` records why.
+
+Prefer resolving a value from the runner at run time
+over pinning it and tracking it.
+`ios-ci.yml` picks the newest iPhone Pro Max simulator
+out of `xcrun simctl list devicetypes`,
+so no device name goes stale and there is nothing for Renovate to watch.
 
 Keep runtime versions such as `java-version` and `node-version` major-only.
 The setup actions resolve a major as a range
