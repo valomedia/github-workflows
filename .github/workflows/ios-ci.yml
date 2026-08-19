@@ -132,10 +132,6 @@ jobs:
         if: ${{ inputs.lint-command != '' }}
         run: ${{ inputs.lint-command }}
 
-      - name: Skip lint
-        if: ${{ inputs.lint-command == '' }}
-        run: echo "No lint command supplied; skipping lint."
-
   build:
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: 30
