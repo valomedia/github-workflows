@@ -27,7 +27,7 @@ on:
         description: Gradle wrapper generation command. Set to an empty string when the wrapper is checked in and should not be generated.
         required: false
         type: string
-        default: gradle wrapper --no-daemon
+        default: gradle :wrapper --no-daemon
       build-command:
         description: Build validation command. Set to an empty string to skip the build step.
         required: false
