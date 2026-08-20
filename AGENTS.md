@@ -13,15 +13,12 @@ It is public, so a consumer can check it out with the default `GITHUB_TOKEN`.
 Update it in the same pull request
 as any change to a workflow's inputs, jobs, or behaviour.
 
-Shared steps may be inlined in the workflow files
-or extracted into a script or composite action under `actions/`.
-Neither needs a Git ref that goes stale.
-A called workflow can check out its own repository
+Shared steps may be extracted into a script or composite action under `actions/`.
+A called workflow should check out its own repository
 at `${{ job.workflow_repository }}` and `${{ job.workflow_sha }}`,
 which always resolves to the commit the running workflow came from,
 and an action in that checkout is referenced by workspace path,
-as `uses: ./<path>/actions/<name>`,
-which is a literal and so needs none of the expressions `uses:` forbids.
+as `uses: ./<path>/actions/<name>`.
 
 Place that checkout after the caller's own checkout.
 A local action resolves when its step runs,
@@ -85,10 +82,6 @@ optionally after a lowercase label prefix,
 such as the `macos-` on the iOS runner label.
 Renovate rewrites the value and leaves the annotation alone,
 so never write the current version into the annotation text.
-
-Do not restate those versions in `README.md`.
-It marks such a default as Renovate-tracked and leaves the value here,
-so a bump leaves no stale documentation behind.
 
 Keep runtime versions such as `java-version` major-only.
 The setup actions resolve a major as a range
