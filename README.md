@@ -2,20 +2,6 @@
 
 Reusable workflows shared across valo.media repositories.
 
-```yaml
-jobs:
-  ci:
-    uses: valomedia/github-workflows/.github/workflows/node-npm-ci.yml@v1
-```
-
-`@v1` is a branch that follows the newest backwards-compatible v1 release.
-Pin a `v1.x.y` tag or a commit SHA instead for exact reproducibility.
-
-Inputs are optional unless the table marks them required.
-A command input set to an empty string skips its step.
-A default marked *Renovate-tracked* is a version Renovate keeps current,
-so the workflow file holds the value in effect.
-
 ## `node-npm-ci.yml`
 
 `build`, `lint`, `unit-tests`, and `integration-tests`,
