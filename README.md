@@ -11,25 +11,21 @@ Groups are scoped to the calling repository,
 so repositories sharing a workflow never queue behind each other.
 
 The CI workflows group by the caller's ref and cancel the run they supersede.
-That buys a shorter queue at the price of one CI result per commit:
-a push that lands while the previous push is still building cancels it.
-That price is real where a later job reads one specific commit's CI result.
-`scheduled-sftp-release.yml` releases a commit
-only once `ci-workflow` has succeeded *for that commit*,
-so a repository on that release path should leave its default branch uncancelled:
+Only a superseded commit ever loses its run:
+the push that cancels a run is the same push that stopped its commit being the newest one.
 
-```yaml
-with:
-  concurrency-cancel-in-progress: ${{ fromJSON(github.ref != 'refs/heads/main') }}
-```
+That is what makes cancelling safe for `scheduled-sftp-release.yml`,
+which releases the newest commit on `branch`
+and needs `ci-workflow` to have succeeded *for that commit*.
+The newest commit is never the one cancelled,
+and dropping the runs behind it frees the capacity for it to start sooner.
+A release that finds CI still running waits for the next scheduled run,
+which is what it did before any of this.
 
-A caller can pass an expression there, not just a literal,
-because `with` values are evaluated in the caller's `github` context.
-Wrap it in `fromJSON` to keep it a real boolean:
-a `${{ }}` result arriving at a typed input can be handed over as a string,
-which a `boolean` input rejects.
+Pass `concurrency-cancel-in-progress: false` where every commit needs a result of its own,
+to bisect over a required check, say, rather than to gate a release.
 
-`scheduled-sftp-release.yml` instead groups by released branch and queues rather than cancelling,
+`scheduled-sftp-release.yml` groups by released branch and queues rather than cancelling,
 because a cancelled release can leave the remote half-mirrored
 and the tag already cut.
 
@@ -37,12 +33,26 @@ Set `concurrency-group` where the derived group is the wrong one.
 Two workflows in one repository that call the same workflow on the same ref
 share a derived group and cancel each other,
 so at least one of them has to name its own.
+That is also the one way a commit loses its CI run without being superseded,
+so keep the caller's ref in any group you name.
+
 Never group on `${{ github.workflow }}`:
 inside a called workflow that resolves to the *caller's* name,
 which drops the call into the caller's own group
 and cancels the run that started it.
 Group names are case insensitive,
 so a bare `ci-` prefix collides with a caller workflow named `CI` the same way.
+
+Either input takes an expression rather than a literal,
+because `with` values are evaluated in the caller's `github` context.
+Wrap a computed boolean in `fromJSON`,
+because a `${{ }}` result arriving at a typed input can be handed over as a string,
+which a `boolean` input rejects:
+
+```yaml
+with:
+  concurrency-cancel-in-progress: ${{ fromJSON(github.ref != 'refs/heads/main') }}
+```
 
 ## `node-npm-ci.yml`
 
