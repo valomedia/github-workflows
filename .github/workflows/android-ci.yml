@@ -80,9 +80,31 @@ on:
         required: false
         type: string
         default: ''
+      concurrency-group:
+        description: Concurrency group this call joins. Set to an empty string to derive one from this workflow and the caller's ref.
+        required: false
+        type: string
+        default: ''
+      concurrency-cancel-in-progress:
+        description: Whether joining the concurrency group cancels a run already in it.
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
+
+concurrency:
+  # Named after this workflow rather than `github.workflow`, which resolves to the *caller's*
+  # workflow name inside a called workflow. A caller grouping on `${{ github.workflow }}-${{ github.ref }}`
+  # would land in this same group and cancel itself the moment the call started. Group names are
+  # case insensitive, so a bare `ci-` prefix would collide with a caller workflow named `CI` too.
+  #
+  # `github.ref` is the caller's ref, and one group per ref is what supersedes an outdated run.
+  # Prefer it over `github.event.pull_request.number`: `github.event` was empty at this evaluation
+  # site in a called workflow until 2026, whereas `github.ref` has always resolved here.
+  group: ${{ inputs.concurrency-group || format('android-ci-{0}', github.ref) }}
+  cancel-in-progress: ${{ inputs.concurrency-cancel-in-progress }}
 
 jobs:
   build:

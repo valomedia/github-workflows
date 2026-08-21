@@ -2,6 +2,10 @@
 
 Reusable workflows shared across valo.media repositories.
 
+Each one owns its concurrency group, so a caller needs no `concurrency:` block.
+Groups are scoped to the calling repository,
+so repositories sharing a workflow never queue behind each other.
+
 ## `node-npm-ci.yml`
 
 `build`, `lint`, `unit-tests`, and `integration-tests`,
@@ -15,6 +19,8 @@ each waiting on the one before it.
 | `unit-test-command` | What `unit-tests` runs | `NODE_ENV=test npm run test` |
 | `integration-test-command` | What `integration-tests` runs | The job does not run |
 | `integration-install-command` | Extra install before the integration tests, such as browser downloads | No install step |
+| `concurrency-group` | Group this call joins; name one where two of your workflows call this on the same ref, or they cancel each other | This workflow and the caller's ref |
+| `concurrency-cancel-in-progress` | Whether joining cancels the run it supersedes | `true` |
 
 ## `android-ci.yml`
 
@@ -39,6 +45,8 @@ plus `instrumented-tests` on an emulator.
 | `instrumented-test-arch` | ABI the emulator runs | `x86_64` |
 | `instrumented-test-artifact-path` | What `instrumented-tests` uploads, pass or fail | Nothing is uploaded |
 | `instrumented-test-artifact-name` | Name that upload gets | `instrumented-test-artifacts` |
+| `concurrency-group` | Group this call joins; name one where two of your workflows call this on the same ref, or they cancel each other | This workflow and the caller's ref |
+| `concurrency-cancel-in-progress` | Whether joining cancels the run it supersedes | `true` |
 
 ## `ios-ci.yml`
 
@@ -66,6 +74,8 @@ with code signing off.
 | `unit-test-only-testing` | `-only-testing` target for that default | The whole scheme |
 | `instrumented-test-command` | What `instrumented-tests` runs | `xcodebuild test` |
 | `instrumented-test-only-testing` | `-only-testing` target for that default | The whole scheme |
+| `concurrency-group` | Group this call joins; name one where two of your workflows call this on the same ref, or they cancel each other | This workflow and the caller's ref |
+| `concurrency-cancel-in-progress` | Whether joining cancels the run it supersedes | `true` |
 
 ## `scheduled-sftp-release.yml`
 
@@ -90,5 +100,7 @@ except root `.ht*` files such as `.htaccess`.
 | `sftp-port` | Port to reach it on | `22` |
 | `sftp-username` | User to log in as | The `SFTP_USERNAME` secret |
 | `sftp-remote-path` | Directory on the host to mirror into | The `SFTP_REMOTE_PATH` secret |
+| `concurrency-group` | Group this call joins; empty derives one | This workflow and `branch` |
+| `concurrency-cancel-in-progress` | Whether joining cancels the release it supersedes | `false`, so releases queue |
 
 Pass `SFTP_PASSWORD` or `SFTP_PRIVATE_KEY` as a secret to authenticate.

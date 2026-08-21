@@ -54,6 +54,16 @@ on:
         required: false
         type: string
         default: ''
+      concurrency-group:
+        description: Concurrency group this call joins. Set to an empty string to derive one from this workflow and the released branch.
+        required: false
+        type: string
+        default: ''
+      concurrency-cancel-in-progress:
+        description: Whether joining the concurrency group cancels a release already in it. Cancelling mid-upload leaves the remote half-mirrored.
+        required: false
+        type: boolean
+        default: false
     secrets:
       SFTP_HOST:
         description: SFTP host when not passed as an input.
@@ -74,6 +84,16 @@ on:
 permissions:
   actions: read
   contents: write
+
+concurrency:
+  # Named after this workflow, not `github.workflow`: that resolves to the caller's workflow name
+  # inside a called workflow, so a caller grouping on it would cancel itself when the call started.
+  #
+  # Grouped by released branch rather than `github.ref`, because a scheduled run's ref is the
+  # default branch whatever `branch` it releases. Two releases of one branch overlapping would
+  # race on the tag and on the remote mirror, so they queue here instead.
+  group: ${{ inputs.concurrency-group || format('scheduled-sftp-release-{0}', inputs.branch) }}
+  cancel-in-progress: ${{ inputs.concurrency-cancel-in-progress }}
 
 jobs:
   release:
