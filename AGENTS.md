@@ -60,6 +60,8 @@ so write every commit message as one.
 Mark every breaking change with both a `!` after the type and a `BREAKING CHANGE:` footer.
 `chore(deps):`, which Renovate writes for a dependency update, releases a patch,
 so a security fix in a dependency reaches callers.
+`renovate.json` makes that `build(deps):` for the release tooling in `package.json`,
+which releases nothing, as callers never run it.
 A revert of a single commit, as `git revert` writes it, releases a patch, whatever that commit's type;
 a revert of a merge commit releases nothing.
 Other types, such as `chore:`, `ci:`, and `docs:`, release nothing on their own.

@@ -22,5 +22,12 @@
         "# renovate: datasource=(?<datasource>[a-z0-9.-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[a-z0-9-]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+default: '?(?:[a-z]+-)?(?<currentValue>v?[0-9][^'\\s]*)'?"
       ]
     }
+  ],
+  "packageRules": [
+    {
+      "description": "package.json holds only the release tooling, which callers never run, so its updates release nothing.",
+      "matchManagers": ["npm"],
+      "semanticCommitType": "build"
+    }
   ]
 }
