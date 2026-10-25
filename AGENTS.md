@@ -66,11 +66,11 @@ A pull request merged with a merge commit releases what its commits say, not its
 Each release tags its commit with an immutable version such as `v1.2.1`.
 Do not move those exact-version tags after publication.
 
-The same run then fast-forwards each major version branch, such as `v1`,
-to the newest release of that major, and creates the branch for a new major,
+The same run then fast-forwards the branch of the major it released, such as `v1`,
+and creates that branch for a new major,
 so consumers using `@v1` receive the newest compatible v1 workflow.
-`GITHUB_TOKEN` may only point a ref at a commit whose workflows match `main`,
-so once `main` has changed a workflow, a branch left behind has to be advanced by hand.
+Branches of older majors never move, as releases only come from `main`.
+A branch that failed to advance catches up with its major's next release.
 
 Do not create a tag named `v1` alongside the `v1` branch.
 A tag wins over a branch of the same name
