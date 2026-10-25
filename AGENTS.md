@@ -56,7 +56,11 @@ It derives the version from the Conventional Commits since the last release,
 so write every commit message as one.
 `fix:` and `perf:` release a patch, `feat:` a minor, and a breaking change a major.
 Mark every breaking change with both a `!` after the type and a `BREAKING CHANGE:` footer.
-Types such as `chore:`, `ci:`, and `docs:` release nothing on their own.
+`chore(deps):`, which Renovate writes for a dependency update, releases a patch,
+so a security fix in a dependency reaches callers.
+Other types, such as `chore:`, `ci:`, and `docs:`, release nothing on their own.
+Renovate never marks an update as breaking;
+when one breaks callers, add a commit with both markers to its pull request.
 A pull request merged with a merge commit releases what its commits say, not its title.
 
 Each release tags its commit with an immutable version such as `v1.2.1`.
