@@ -54,8 +54,8 @@ that also drops the preset, so the dry run analyzes commits differently.
 `release.yml` runs semantic-release on `main` every Friday at 03:21 UTC.
 It derives the version from the Conventional Commits since the last release,
 so write every commit message as one.
-`fix:` and `perf:` release a patch, `feat:` a minor,
-and a `!` after the type or a `BREAKING CHANGE:` footer a major.
+`fix:` and `perf:` release a patch, `feat:` a minor, and a breaking change a major.
+Mark every breaking change with both a `!` after the type and a `BREAKING CHANGE:` footer.
 Types such as `chore:`, `ci:`, and `docs:` release nothing on their own.
 A pull request merged with a merge commit releases what its commits say, not its title.
 
