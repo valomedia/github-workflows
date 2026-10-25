@@ -9,11 +9,6 @@ so repositories sharing a workflow never queue behind each other.
 Each one runs on a fixed OS version rather than a `-latest` runner label,
 so a new OS version reaches callers only through a release of these workflows.
 
-Call a workflow at `@v1` to follow every backwards-compatible release,
-or at an exact tag such as `@v1.2.0` to stay on one.
-A release goes out each Friday at 03:21 UTC
-when a fix or feature landed on `main` since the last one.
-
 ## `node-npm-ci.yml`
 
 `build`, `lint`, `unit-tests`, and `integration-tests`,
