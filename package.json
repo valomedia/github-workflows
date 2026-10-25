@@ -2,8 +2,8 @@
   "name": "github-workflows",
   "private": true,
   "devDependencies": {
-    "conventional-changelog-conventionalcommits": "9.3.1",
-    "semantic-release": "25.0.9"
+    "conventional-changelog-conventionalcommits": "^9.3.1",
+    "semantic-release": "^25.0.9"
   },
   "release": {
     "branches": [
