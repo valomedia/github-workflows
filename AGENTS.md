@@ -28,7 +28,7 @@ A one-line step is not worth a checkout; a real script or action is.
 
 ## Validation
 
-There is no package manifest or local test suite in this repository.
+`package.json` pins only the release tooling; there is no local test suite.
 For documentation-only changes,
 validate by inspecting the changed Markdown and relevant workflow YAML.
 
@@ -43,16 +43,30 @@ and check the result with `RENOVATE_PLATFORM=local renovate --dry-run=lookup`.
 That reads Git-tracked files, so stage changes first,
 and it cannot resolve `github>valomedia/renovate-config` without a GitHub token.
 
+For release configuration changes,
+run `npx semantic-release --dry-run --no-ci --branches <branch>` on a pushed branch.
+The GitHub plugin's checks need a `GITHUB_TOKEN`.
+Do not drop that plugin with `--plugins` instead:
+that also drops the preset, so the dry run analyzes commits differently.
+
 ## Reusable Workflow Versioning
 
-Publish immutable patch and minor tags such as `v1.0.0`, `v1.0.1`, and `v1.0.2`
-at the commits they release.
+`release.yml` runs semantic-release on `main` every Friday at 03:21 UTC.
+It derives the version from the Conventional Commits since the last release,
+so write every commit message as one.
+`fix:` and `perf:` release a patch, `feat:` a minor,
+and a `!` after the type or a `BREAKING CHANGE:` footer a major.
+Types such as `chore:`, `ci:`, and `docs:` release nothing on their own.
+A pull request merged with a merge commit releases what its commits say, not its title.
+
+Each release tags its commit with an immutable version such as `v1.2.1`.
 Do not move those exact-version tags after publication.
 
-Maintain the major version branch `v1` for backwards-compatible v1 releases.
-Whenever a new backwards-compatible `v1.x.y` release is published,
-advance the `v1` branch to the same release commit
+The same run then fast-forwards each major version branch, such as `v1`,
+to the newest release of that major, and creates the branch for a new major,
 so consumers using `@v1` receive the newest compatible v1 workflow.
+`GITHUB_TOKEN` may only point a ref at a commit whose workflows match `main`,
+so once `main` has changed a workflow, a branch left behind has to be advanced by hand.
 
 Do not create a tag named `v1` alongside the `v1` branch.
 A tag wins over a branch of the same name
@@ -91,6 +105,10 @@ and a `runs-on` input default takes the annotation above.
 Keep runtime versions such as `java-version` major-only.
 The setup actions resolve a major as a range
 and install the newest matching release the runner offers.
+
+Take a new major of `conventional-changelog-conventionalcommits` only after a release dry run.
+A major can need a newer changelog writer than semantic-release ships,
+as `10.x` does over `semantic-release@25.0.9`.
 
 Prefer resolving a value from the runner at run time
 over pinning it and tracking it,
