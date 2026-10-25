@@ -6,6 +6,9 @@ Each one owns its concurrency group, so a caller needs no `concurrency:` block.
 Groups are scoped to the calling repository,
 so repositories sharing a workflow never queue behind each other.
 
+Each one runs on a fixed OS version rather than a `-latest` runner label,
+so a new OS version reaches callers only through a release of these workflows.
+
 ## `node-npm-ci.yml`
 
 `build`, `lint`, `unit-tests`, and `integration-tests`,
@@ -30,7 +33,7 @@ plus `instrumented-tests` on an emulator.
 
 | Input | What it does | Default |
 | --- | --- | --- |
-| `runs-on` | Runner every job takes | `ubuntu-latest` |
+| `runs-on` | Runner every job takes | Newest Ubuntu runner |
 | `java-version` | JDK every job sets up | Newest Java release |
 | `java-distribution` | Vendor that JDK comes from | `temurin` |
 | `gradle-version` | Gradle installed before the wrapper is generated | The runner image's Gradle |
