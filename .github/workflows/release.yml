@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  schedule:
+    - cron: '21 3 * * 5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # Two releases overlapping would race on the tag and the major version branch, so they queue.
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npx semantic-release
+
+      # A release tags the tip of `main`, so only the branch of the major it released moves,
+      # and `GITHUB_TOKEN` may only point a ref at a commit whose workflows match the default branch.
+      - name: Advance major version branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="$(git tag --points-at HEAD --sort=-version:refname \
+            | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ && !found++')"
+
+          if [ -z "${tag}" ]; then
+            echo "No release at HEAD; leaving the major version branches alone."
+            exit 0
+          fi
+
+          git push origin "HEAD:refs/heads/${tag%%.*}"

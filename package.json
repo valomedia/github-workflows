@@ -1,0 +1,105 @@
+{
+  "name": "github-workflows",
+  "private": true,
+  "devDependencies": {
+    "conventional-changelog-conventionalcommits": "^9.3.1",
+    "semantic-release": "^25.0.9"
+  },
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "conventionalcommits",
+          "releaseRules": [
+            {
+              "breaking": true,
+              "release": "major"
+            },
+            {
+              "type": "chore",
+              "scope": "deps",
+              "release": "patch"
+            }
+          ]
+        }
+      ],
+      [
+        "@semantic-release/release-notes-generator",
+        {
+          "preset": "conventionalcommits",
+          "presetConfig": {
+            "types": [
+              {
+                "type": "feat",
+                "section": "Features"
+              },
+              {
+                "type": "fix",
+                "section": "Bug Fixes"
+              },
+              {
+                "type": "perf",
+                "section": "Performance Improvements"
+              },
+              {
+                "type": "revert",
+                "section": "Reverts"
+              },
+              {
+                "type": "chore",
+                "scope": "deps",
+                "section": "Dependencies"
+              },
+              {
+                "type": "docs",
+                "section": "Documentation",
+                "hidden": true
+              },
+              {
+                "type": "style",
+                "section": "Styles",
+                "hidden": true
+              },
+              {
+                "type": "chore",
+                "section": "Miscellaneous Chores",
+                "hidden": true
+              },
+              {
+                "type": "refactor",
+                "section": "Code Refactoring",
+                "hidden": true
+              },
+              {
+                "type": "test",
+                "section": "Tests",
+                "hidden": true
+              },
+              {
+                "type": "build",
+                "section": "Build System",
+                "hidden": true
+              },
+              {
+                "type": "ci",
+                "section": "Continuous Integration",
+                "hidden": true
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "@semantic-release/github",
+        {
+          "successCommentCondition": false,
+          "failCommentCondition": false
+        }
+      ]
+    ]
+  }
+}
