@@ -83,6 +83,11 @@ such as the `macos-` on the iOS runner label.
 Renovate rewrites the value and leaves the annotation alone,
 so never write the current version into the annotation text.
 
+Pin every runner to an OS version, such as `ubuntu-24.04`,
+never a `-latest` label, which moves to a new OS version without a change here.
+Renovate's `github-actions` manager tracks a literal `runs-on:` value,
+and a `runs-on` input default takes the annotation above.
+
 Keep runtime versions such as `java-version` major-only.
 The setup actions resolve a major as a range
 and install the newest matching release the runner offers.

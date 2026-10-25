@@ -7,7 +7,8 @@ on:
         description: GitHub Actions runner label used for Android jobs.
         required: false
         type: string
-        default: ubuntu-latest
+        # renovate: datasource=github-runners depName=ubuntu versioning=docker
+        default: ubuntu-24.04
       java-version:
         description: Java version used for Gradle and Android builds.
         required: false
