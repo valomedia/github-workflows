@@ -106,9 +106,11 @@ Keep runtime versions such as `java-version` major-only.
 The setup actions resolve a major as a range
 and install the newest matching release the runner offers.
 
-Take a new major of `conventional-changelog-conventionalcommits` only after a release dry run.
-A major can need a newer changelog writer than semantic-release ships,
-as `10.x` does over `semantic-release@25.0.9`.
+Keep `conventional-changelog-conventionalcommits` on major 9 while `semantic-release` is on 25.
+Its major 10 renders notes only with `conventional-changelog-writer` 9,
+and the release notes plugin of `semantic-release` 25 ships writer 8.
+The `semantic-release` 26 betas move to writer 9 and depend on preset 10 themselves,
+so the devDependency may go with that upgrade.
 
 Prefer resolving a value from the runner at run time
 over pinning it and tracking it,
