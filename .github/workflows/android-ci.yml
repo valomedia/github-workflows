@@ -65,7 +65,7 @@ on:
         required: false
         type: number
         # renovate: datasource=custom.android-api-level depName=android-api-level versioning=docker
-        default: 35
+        default: 37
       instrumented-test-arch:
         description: Android emulator CPU architecture used for instrumented tests.
         required: false
