@@ -14,7 +14,7 @@ on:
         required: false
         type: string
         # renovate: datasource=java-version depName=java extractVersion=^(?<version>\d+)
-        default: '17'
+        default: '25'
       java-distribution:
         description: Java distribution passed to actions/setup-java.
         required: false
