@@ -8,7 +8,7 @@ on:
         required: false
         type: string
         # renovate: datasource=github-runners depName=macos versioning=docker
-        default: macos-15
+        default: macos-26
       xcode-path:
         description: Xcode application path selected before installing dependencies and running checks. Set to an empty string to skip selection.
         required: false
