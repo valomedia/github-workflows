@@ -14,6 +14,16 @@ on:
         required: false
         type: string
         default: npm run build
+      build-artifact-name:
+        description: Name of the optional build artifacts, before their .zip and .tar.gz extensions.
+        required: false
+        type: string
+        default: node-build
+      build-artifact-path:
+        description: Directory to upload as a ZIP and a tar.gz artifact after the build command. Set to an empty string to skip artifact upload.
+        required: false
+        type: string
+        default: ''
       lint-command:
         description: Lint command. Set to an empty string to skip the lint step.
         required: false
@@ -78,6 +88,46 @@ jobs:
       - name: Build
         if: ${{ inputs.build-command != '' }}
         run: ${{ inputs.build-command }}
+
+      - name: Archive build output
+        if: ${{ inputs.build-command != '' && inputs.build-artifact-path != '' }}
+        env:
+          BUILD_ARTIFACT_NAME: ${{ inputs.build-artifact-name }}
+          BUILD_ARTIFACT_PATH: ${{ inputs.build-artifact-path }}
+        run: |
+          if [[ ! "$BUILD_ARTIFACT_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::build-artifact-name must start with a letter or digit and contain only letters, digits, dots, underscores, and hyphens."
+            exit 1
+          fi
+
+          build_directory="$(realpath -m -- "$BUILD_ARTIFACT_PATH")"
+          if [[ ! -d "$build_directory" || "$build_directory" != "$GITHUB_WORKSPACE/"* ]]; then
+            echo "::error::build-artifact-path must be a directory inside the workspace, not the workspace itself."
+            exit 1
+          fi
+
+          # Archive from the parent, so each archive holds the directory under its own name.
+          cd -- "$(dirname -- "$build_directory")"
+          directory_name="$(basename -- "$build_directory")"
+          zip -q -r -y "$RUNNER_TEMP/$BUILD_ARTIFACT_NAME.zip" "$directory_name"
+          tar -czf "$RUNNER_TEMP/$BUILD_ARTIFACT_NAME.tar.gz" "$directory_name"
+
+      # With `archive: false`, the action uploads one file as is and names the artifact after it.
+      - name: Upload build ZIP
+        if: ${{ inputs.build-command != '' && inputs.build-artifact-path != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: ${{ runner.temp }}/${{ inputs.build-artifact-name }}.zip
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload build tar.gz
+        if: ${{ inputs.build-command != '' && inputs.build-artifact-path != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: ${{ runner.temp }}/${{ inputs.build-artifact-name }}.tar.gz
+          archive: false
+          if-no-files-found: error
 
   lint:
     needs: build

@@ -18,12 +18,28 @@ each waiting on the one before it.
 | --- | --- | --- |
 | `node-version` | Node.js every job sets up | Newest Node LTS |
 | `build-command` | What `build` runs; empty skips it | `npm run build` |
+| `build-artifact-path` | Directory `build` uploads as a `.zip` and a `.tar.gz` artifact; empty skips the upload | Nothing is uploaded |
+| `build-artifact-name` | Name both artifacts get, before their extension | `node-build` |
 | `lint-command` | What `lint` runs; empty skips it | `npm run lint` |
 | `unit-test-command` | What `unit-tests` runs | `NODE_ENV=test npm run test` |
 | `integration-test-command` | What `integration-tests` runs | The job does not run |
 | `integration-install-command` | Extra install before the integration tests, such as browser downloads | No install step |
 | `concurrency-group` | Group this call joins; name one where two of your workflows call this on the same ref, or they cancel each other | This workflow and the caller's ref |
 | `concurrency-cancel-in-progress` | Whether joining cancels the run it supersedes | `true` |
+
+`build-artifact-path` is relative to the caller's repository
+and has to be a directory inside it, not the repository root.
+Each archive holds that directory under its own name,
+so `dist/index.html` extracts to `dist/index.html`,
+with hidden files, empty directories, and symlinks as they are.
+Each archive is its own artifact, uploaded without the usual ZIP wrapper
+and named `<build-artifact-name>.zip` or `<build-artifact-name>.tar.gz`,
+so the name may only contain letters, digits, dots, underscores, and hyphens.
+Download one with `actions/download-artifact` v8 or newer,
+passing that full name,
+and `skip-decompress: true` to keep the ZIP from being extracted.
+When several calls in one run upload, such as a matrix,
+give each its own `build-artifact-name`.
 
 ## `android-ci.yml`
 
