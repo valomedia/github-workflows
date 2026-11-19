@@ -28,8 +28,12 @@ A one-line step is not worth a checkout; a real script or action is.
 
 ## Validation
 
-`package.json` lists only the release tooling, and `package-lock.json` pins it;
-there is no local test suite.
+`package.json` lists the release tooling, and `package-lock.json` pins it.
+`node-npm-cd.yml` also installs that tooling for callers,
+using its own Node runtime and an isolated release configuration.
+After `npm ci`, run `node --test actions/node-npm-cd/release.test.mts`
+with Node 24, Bash, `zip`, `unzip`, and `tar` available.
+These tests do not publish releases or contact GitHub.
 For documentation-only changes,
 validate by inspecting the changed Markdown and relevant workflow YAML.
 
@@ -61,7 +65,9 @@ Mark every breaking change with both a `!` after the type and a `BREAKING CHANGE
 `chore(deps):`, which Renovate writes for a dependency update, releases a patch,
 so a security fix in a dependency reaches callers.
 `renovate.json` makes that `build(deps):` for the release tooling in `package.json`,
-which releases nothing, as callers never run it.
+which releases nothing on its own.
+Since `node-npm-cd.yml` runs that tooling for callers,
+pair caller-affecting tooling updates with a `fix(node-npm-cd):` commit to ship them.
 A revert of a single commit, as `git revert` writes it, releases a patch, whatever that commit's type;
 a revert of a merge commit releases nothing.
 Other types, such as `chore:`, `ci:`, and `docs:`, release nothing on their own.

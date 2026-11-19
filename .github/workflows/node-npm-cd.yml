@@ -1,0 +1,163 @@
+name: Node/npm CD
+
+on:
+  workflow_call:
+    inputs:
+      ci-workflow:
+        description: Caller workflow filename or ID whose latest run for the release SHA must have succeeded.
+        required: false
+        type: string
+        default: ci.yml
+      node-version:
+        description: Node.js version used for E2E tests and the build.
+        required: false
+        type: string
+        # renovate: datasource=node-version depName=node versioning=node
+        default: '24'
+      build-command:
+        description: Command that creates the release build. Must not be empty.
+        required: false
+        type: string
+        default: npm run build
+      build-artifact-path:
+        description: Directory containing the build output, relative to the caller's repository.
+        required: false
+        type: string
+        default: dist
+      e2e-test-command:
+        description: E2E test command. Set to an empty string to skip E2E tests.
+        required: false
+        type: string
+        default: ''
+      e2e-install-command:
+        description: Optional install before E2E tests, such as Playwright browser installation.
+        required: false
+        type: string
+        default: ''
+      e2e-screenshots-path:
+        description: Optional directory of E2E screenshots to include in both release archives. Requires e2e-test-command.
+        required: false
+        type: string
+        default: ''
+      concurrency-group:
+        description: Concurrency group this call joins. Set to an empty string to derive one from this workflow and main.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  # Do not use the caller's workflow name or cancel a release during publication.
+  group: ${{ inputs.concurrency-group || 'node-npm-cd-main' }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      WORKFLOW_TOOLS: ${{ github.workspace }}/.node-npm-cd-tools
+
+    steps:
+      - name: Validate release invocation
+        env:
+          BUILD_COMMAND: ${{ inputs.build-command }}
+          E2E_COMMAND: ${{ inputs.e2e-test-command }}
+          SCREENSHOTS_PATH: ${{ inputs.e2e-screenshots-path }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != refs/heads/main || ( "$GITHUB_EVENT_NAME" != schedule && "$GITHUB_EVENT_NAME" != workflow_dispatch ) ]]; then
+            echo '::error::Call this workflow from schedule or workflow_dispatch on main.'
+            exit 1
+          fi
+          if [[ -z "${BUILD_COMMAND//[[:space:]]/}" ]]; then
+            echo '::error::build-command must not be empty.'
+            exit 1
+          fi
+          if [[ -n "$SCREENSHOTS_PATH" && -z "$E2E_COMMAND" ]]; then
+            echo '::error::e2e-screenshots-path requires e2e-test-command.'
+            exit 1
+          fi
+
+      - name: Verify CI succeeded for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_WORKFLOW: ${{ inputs.ci-workflow }}
+        run: |
+          set -euo pipefail
+          ci_result="$(gh api --method GET \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${CI_WORKFLOW}/runs" \
+            -f branch=main -f head_sha="$GITHUB_SHA" -f per_page=1 \
+            --jq '.workflow_runs[0] | [.head_sha, .head_branch, .status, .conclusion] | @tsv')"
+          if [[ "$ci_result" != "$GITHUB_SHA"$'\tmain\tcompleted\tsuccess' ]]; then
+            echo "::error::The latest ${CI_WORKFLOW} run for ${GITHUB_SHA} on main must have completed successfully."
+            exit 1
+          fi
+
+      - name: Check out release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out workflow tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .node-npm-cd-tools
+          persist-credentials: false
+
+      - name: Set up build Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Install E2E dependencies
+        if: ${{ inputs.e2e-test-command != '' && inputs.e2e-install-command != '' }}
+        run: ${{ inputs.e2e-install-command }}
+
+      - name: E2E tests
+        if: ${{ inputs.e2e-test-command != '' }}
+        run: ${{ inputs.e2e-test-command }}
+
+      - name: Preserve screenshots before the build
+        id: release-files
+        env:
+          SCREENSHOTS_PATH: ${{ inputs.e2e-screenshots-path }}
+        run: bash "$WORKFLOW_TOOLS/actions/node-npm-cd/archive.sh" screenshots
+
+      - name: Build
+        run: ${{ inputs.build-command }}
+
+      - name: Archive release output
+        env:
+          BUILD_ARTIFACT_PATH: ${{ inputs.build-artifact-path }}
+          RELEASE_FILES: ${{ steps.release-files.outputs.directory }}
+        run: bash "$WORKFLOW_TOOLS/actions/node-npm-cd/archive.sh" build
+
+      # Release tooling has its own runtime and lockfile, independent of the caller's build.
+      - name: Set up release Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24'
+
+      - name: Install release tooling
+        run: npm ci --prefix "$WORKFLOW_TOOLS" --include=dev --ignore-scripts
+
+      - name: Release on GitHub
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_FILES: ${{ steps.release-files.outputs.directory }}
+        run: node "$WORKFLOW_TOOLS/actions/node-npm-cd/release.mts"
